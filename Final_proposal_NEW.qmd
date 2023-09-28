@@ -17,13 +17,21 @@ format:
 
 The Motor Vehicle Collisions dataset contains information about car crashes in NYC from the years 2016-2023. It contains information from all police reported motor vehicle collisions in NYC. We accessed the dataset from data.gov, provided by the City of New York. Each entry represents a car crash that occured in New York City. The dataset contains 28 columns that describe a variety of data, including time of accident, accident severity(deaths/injuries), pinpointed locations (neighborhoods/streets), causes for the accident, and vehicle type. Using this data, we hope to analyze and identify chronological and geographical patterns in New York City to pinpoint high-risk environments and circumstances. We are assuming that the data is continuous in terms of time, and that the specific timestamps and event details are accurate.
 
-```{r setup, include=FALSE}
-knitr::opts_knit$set(root.dir = "/Users/sophiochikhladze/Desktop/Stat_405/Stat405_Final_NEW/Stat405_Data/")
+```{r setup, include=FALSE, echo = FALSE}
+# Sophie: 
+knitr::opts_knit$set(root.dir = "/Users/sophiochikhladze/Desktop/Stat_405/Stat405_Data")
+
+# Sawyer: 
+#knitr::opts_knit$set(root.dir = "")
+
+# Adarsh:
+#knitr::opts_knit$set(root.dir = "")
+
+# Rahul:
+#knitr::opts_knit$set(root.dir = "")
 ```
 
 ```{r, echo = FALSE}
-setwd("/Users/sophiochikhladze/Desktop/Stat_405/Stat405_Final_NEW")
-getwd()
 nyc_crashes <- read.csv("Motor_Vehicle_Collisions_-_Crashes.csv")
 ```
 
@@ -191,6 +199,10 @@ This plot shows a linear regression over a plot of car crashes vs precipitation 
 
 {{< pagebreak >}}
 
+# ggplot2 Plots
+
+## Number of Car Accidents Over/Under average per Day of Week
+
 ```{r}
 # Create the faceted heatmap with sorted weekdays
 library(ggplot2)
@@ -229,6 +241,31 @@ ggplot(borough_crash_counts, aes(x = Borough, y = factor(Weekday, levels = rev(w
   theme(plot.title = element_text(hjust = 0.5)) 
 
 ```
+
+## Number of Car Crashes per Zipcode Heatmap
+
+```{r}
+library(tidyverse)
+library(sf)
+
+nyc_crashes$ZIP.CODE <- as.character(nyc_crashes$ZIP.CODE)
+nyc_crashes$ZIP.CODE <- sub("\\.0$", "", nyc_crashes$ZIP.CODE)
+zip_counts <- nyc_crashes %>%
+group_by(ZIP.CODE) %>%
+summarize(count = n())
+nyc_zip_boundaries <- st_read("zipcodes.geojson")
+merged_zip_data <- left_join(nyc_zip_boundaries, zip_counts, by = c("ZIPCODE" = "ZIP.CODE"))
+ggplot(merged_zip_data) +
+  geom_sf(aes(fill = count)) +
+  scale_fill_gradient(low = "lightyellow", high = "darkred", 
+                      name = "Count of Car Crashes") +
+  ggtitle("Heatmap of Car Crashes by NYC ZIP Code") +
+  labs(x = "Longitude", y = "Latitude", 
+       caption = "Data: NYC Car Crash Data") +
+  theme_minimal()
+```
+
+Trash code:
 
 ```{r, echo=FALSE, eval=FALSE}
 # Trash Code
@@ -269,21 +306,6 @@ covid_cases <- merge(daily_counts, covid_cases, by.x = "Date", by.y = "date_of_i
 ```
 
 ```{r}
-nyc_crashes$ZIP.CODE <- as.character(nyc_crashes$ZIP.CODE)
-nyc_crashes$ZIP.CODE <- sub("\\.0$", "", nyc_crashes$ZIP.CODE)
-zip_counts <- nyc_crashes %>%
-group_by(ZIP.CODE) %>%
-summarize(count = n())
-nyc_zip_boundaries <- st_read("zipcodes.geojson")
-merged_zip_data <- left_join(nyc_zip_boundaries, zip_counts, by = c("ZIPCODE" = "ZIP.CODE"))
-ggplot(merged_zip_data) +
-  geom_sf(aes(fill = count)) +
-  scale_fill_gradient(low = "lightyellow", high = "darkred", 
-                      name = "Count of Car Crashes") +
-  ggtitle("Heatmap of Car Crashes by NYC ZIP Code") +
-  labs(x = "Longitude", y = "Latitude", 
-       caption = "Data: NYC Car Crash Data") +
-  theme_minimal()
 
 
 ```
