@@ -43,7 +43,7 @@ nyc_crashes <- read.csv("Motor_Vehicle_Collisions_-_Crashes.csv")
 
 First, we decided to plot a time series of the number of car crashes each day starting from 2012 up until 2023. Each point represents the total number of crashes that occurred on each day, plotted chronologically.
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, include=FALSE}
 nyc_crashes$CRASH.DATE <- as.Date(nyc_crashes$CRASH.DATE,format = "%m/%d/%Y")
 dates <- factor(nyc_crashes$CRASH.DATE[!is.na(nyc_crashes$CRASH.DATE)])
 plot(as.Date(levels(dates)), as.numeric(table(dates)), type = "l", xlab = "Date", ylab = "Number of Car Crashes", main = "Number of Car Crashes in NYC over Time", yaxt = "n")
@@ -58,7 +58,7 @@ Looking at the number of crashes over time, from 2012 to 2023, we can see that t
 
 For this plot, we grouped the data by 5 boroughs of New York City: Bronx, Brooklyn, Manhattan, Queens, and Staten Island. First, we calculated the total number of car crashes in each borough, and plotted it in tens of thousands since there was a large amount. Then, we wanted to see if the number of casualties in each borough was proportional to the number of car crashes. Therefore, we calculated the total number of deaths from car accidents per borough and plotted that beside the number of car crashes.
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, include=FALSE}
 dead_boroughs <- factor(nyc_crashes$BOROUGH[nyc_crashes$NUMBER.OF.PERSONS.KILLED > 0 & nyc_crashes$BOROUGH!=""])
 boroughs <- factor(nyc_crashes$BOROUGH[nyc_crashes$BOROUGH!=""])
 num_crashes <- as.numeric(table(boroughs)) / 10000
@@ -87,7 +87,7 @@ From the left plot, we can see that Brooklyn has the highest amount of crashes, 
 
 This is a density plot visualizing total casualties for all accidents in our dataset, where a casualty is either a person injured or a person killed. The plot visualizes the probability density function (pdf) of total casualties of car crashes in NYC. It shows the distribution of car crash casualties in NYC and how likely each amount is.
 
-```{r , echo=FALSE}
+```{r , echo=FALSE, include=FALSE}
 nyc_crashes$TOTAL.CASUALTIES <- nyc_crashes$NUMBER.OF.PERSONS.INJURED + nyc_crashes$NUMBER.OF.PERSONS.KILLED
 threshold <- quantile(nyc_crashes$TOTAL.CASUALTIES, 0.9995, na.rm=TRUE)
 filtered_data <- nyc_crashes[nyc_crashes$TOTAL.CASUALTIES <= threshold,]
@@ -109,7 +109,7 @@ This plot suggests that based on our data, car crashes in NYC are most likely to
 
 Next, we asked ourselves - is an accident more or less likely to occur during a specific season? For this, we turned each date into a season and calculated the number of car crashes per day for each season. The, we plotted 4 boxplots to represent each season portraying the number of car crashes per day.
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, include=FALSE}
 conv_season <- function(date) {
   m <- as.numeric(format(date, "%m"))
   if(m == 12 || m == 1 || m == 2){
@@ -145,7 +145,7 @@ As we can see, there is a relatively similar amount of car crashes across all th
 
 We decided to find out how many cars were involved in each accident. While there wasn't a column for the number of cars involved, there were 5 columns for vehicle type, so we counted each nonempty entry as a car involved.
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, include=FALSE}
 num_cars <- data.frame(Date = (nyc_crashes$CRASH.DATE))
 num_cars$cars = (nyc_crashes$VEHICLE.TYPE.CODE.1!= "") + (nyc_crashes$VEHICLE.TYPE.CODE.2!= "") + (nyc_crashes$VEHICLE.TYPE.CODE.3!= "") + (nyc_crashes$VEHICLE.TYPE.CODE.4!= "") + (nyc_crashes$VEHICLE.TYPE.CODE.5!= "")
 hist(num_cars$cars, col = c('lightgreen', 'limegreen', 'darkolivegreen4','green4', 'darkgreen', 'black'), main = strwrap("The number of Cars Involved in each Accident and its Frequency", 30), xlab = 'The Number of Cars involved', ylim = c(0, 1500000), yaxt = 'n', ylab = "")
@@ -160,7 +160,7 @@ As the histogram shows, the highest frequency of cars involved in a given car cr
 
 We decided to find the 5 most common specified reasons for car crashes in New York. While a majority of the causes was unspecified or other, we decided not to include those in our chart.
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, include=FALSE}
 x <- table(nyc_crashes$CONTRIBUTING.FACTOR.VEHICLE.1)
 #x[order(-x)]
 
@@ -182,7 +182,7 @@ This plot displays the distribution of the most common reasons for car crashes i
 
 # Regression
 
-```{r, echo = FALSE}
+```{r, echo = FALSE, include=FALSE}
 weatherdata<-read.csv("New York City,USA 2020-09-01 to 2022-12-31.csv")
 
 merged_data3 <- merge(daily_counts, weatherdata, by.x="Date", by.y="datetime")
@@ -203,7 +203,7 @@ This plot shows a linear regression over a plot of car crashes vs precipitation 
 
 ## Number of Car Accidents Over/Under average per Day of Week
 
-```{r}
+```{r, echo = FALSE, include=FALSE}
 # Create the faceted heatmap with sorted weekdays
 library(ggplot2)
 library(viridis)
@@ -244,7 +244,7 @@ ggplot(borough_crash_counts, aes(x = Borough, y = factor(Weekday, levels = rev(w
 
 ## Number of Car Crashes per Zipcode Heatmap
 
-```{r}
+```{r, echo = FALSE, include=FALSE}
 library(tidyverse)
 library(sf)
 
