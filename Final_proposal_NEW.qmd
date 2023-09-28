@@ -1,0 +1,297 @@
+---
+title: "Car Crashes in New York City"
+author: "Sawyer Cremer, Sophie Chikhladze, Adarsh Gadepalli, Rahul Prakash"
+format:
+  pdf:
+    toc: true
+    toc-depth: 3
+---
+
+{{< pagebreak >}}
+
+# Introduction
+
+1.3 million people die each year as a result of road traffic crashes, and between 20 and 50 million people every year suffer non-fatal injuries resulting from car accidents. Other than the millions of lives lost, the U.S. Department of Transportation's most recent estimate of the annual economic cost of crashes is \$340 billion. This is an issue affecting virtually every country in the world, including the United States. In New York City, New York, the New York Police Department is required to be fill out a report for every collision where someone is injured or killed, or where there is at least \$1000 worth of damage.
+
+# Primary Dataset
+
+The Motor Vehicle Collisions dataset contains information about car crashes in NYC from the years 2016-2023. It contains information from all police reported motor vehicle collisions in NYC. We accessed the dataset from data.gov, provided by the City of New York. Each entry represents a car crash that occured in New York City. The dataset contains 28 columns that describe a variety of data, including time of accident, accident severity(deaths/injuries), pinpointed locations (neighborhoods/streets), causes for the accident, and vehicle type. Using this data, we hope to analyze and identify chronological and geographical patterns in New York City to pinpoint high-risk environments and circumstances. We are assuming that the data is continuous in terms of time, and that the specific timestamps and event details are accurate.
+
+```{r setup, include=FALSE}
+knitr::opts_knit$set(root.dir = "/Users/sophiochikhladze/Desktop/Stat_405/Stat405_Final_NEW/Stat405_Data/")
+```
+
+```{r, echo = FALSE}
+setwd("/Users/sophiochikhladze/Desktop/Stat_405/Stat405_Final_NEW")
+getwd()
+nyc_crashes <- read.csv("Motor_Vehicle_Collisions_-_Crashes.csv")
+```
+
+{{< pagebreak >}}
+
+# Plots
+
+## Number of Car Crashes over time
+
+First, we decided to plot a time series of the number of car crashes each day starting from 2012 up until 2023. Each point represents the total number of crashes that occurred on each day, plotted chronologically.
+
+```{r, echo=FALSE}
+nyc_crashes$CRASH.DATE <- as.Date(nyc_crashes$CRASH.DATE,format = "%m/%d/%Y")
+dates <- factor(nyc_crashes$CRASH.DATE[!is.na(nyc_crashes$CRASH.DATE)])
+plot(as.Date(levels(dates)), as.numeric(table(dates)), type = "l", xlab = "Date", ylab = "Number of Car Crashes", main = "Number of Car Crashes in NYC over Time", yaxt = "n")
+axis(2, las = 2)
+```
+
+Looking at the number of crashes over time, from 2012 to 2023, we can see that the number of crashes remained fairly consistent from 2012 to the beginning of 2020, with certain exceptions like big spikes or drops. Until 2020, there is no year with an exceptionally low or high number of crashes. However, we see a clear change in the number of crashes in the beginning of 2020, which can be interpreted as the effects of COVID-19 as that is roughly the date it started. Less people had to go to work, school became virtual, and therefore less people were driving, leading to a lowered number of car crashes per day. We could also further study the exact dates of this drop versus when the lockdown started.
+
+{{< pagebreak >}}
+
+## Number of Car Crashes and Deaths per Borough Bar Plot
+
+For this plot, we grouped the data by 5 boroughs of New York City: Bronx, Brooklyn, Manhattan, Queens, and Staten Island. First, we calculated the total number of car crashes in each borough, and plotted it in tens of thousands since there was a large amount. Then, we wanted to see if the number of casualties in each borough was proportional to the number of car crashes. Therefore, we calculated the total number of deaths from car accidents per borough and plotted that beside the number of car crashes.
+
+```{r, echo = FALSE}
+dead_boroughs <- factor(nyc_crashes$BOROUGH[nyc_crashes$NUMBER.OF.PERSONS.KILLED > 0 & nyc_crashes$BOROUGH!=""])
+boroughs <- factor(nyc_crashes$BOROUGH[nyc_crashes$BOROUGH!=""])
+num_crashes <- as.numeric(table(boroughs)) / 10000
+num_deaths <- as.numeric(table(dead_boroughs))
+y_ticks <- seq(0, 56, by = 8)
+par(mgp = c(1.8, 0.2, 0),
+    tck = 0.02)
+layout(matrix(c(1, 2), nrow = 1, byrow = TRUE))
+barplot(num_crashes,
+        names.arg = c("Bronx", "Brooklyn", "Manhattan", "Queens", "Staten Island"),
+        col = c("lightblue"), las = 2, yaxt = "n", yaxs = "i", ylim = c(0, 46),
+        ylab = "Number of Crashes detected",
+        main = strwrap("# of Car Crashes per Borough, in tens of thousands", 25), axes = TRUE)
+axis(2, las = 2, at = y_ticks, labels = y_ticks)
+barplot(num_deaths,
+        names.arg = c("Bronx", "Brooklyn", "Manhattan", "Queens", "Staten Island"),
+        col = c("royalblue"), las = 2, ylab = "Number of Deaths", ylim = c(0,600),
+        main = strwrap("# of Deaths from Car Crashes per Borough", 25))
+```
+
+From the left plot, we can see that Brooklyn has the highest amount of crashes, followed by Queens and Manhattan. Staten Island has the lowest number of crashes recorded, by a significant amount. Despite the fact that Staten Island has the highest number of cars per household, it is sensible that the rest of the boroughs have more car accidents, since there is more general traffic there. Furthermore, if we compare the number of crashes per borough to the number of casualties per borough, We can see that the proportions of deaths are similar to the number of accidents, except for Manhattan, which is slightly lower.
+
+{{< pagebreak >}}
+
+## The Density of Total Number of Casualties
+
+This is a density plot visualizing total casualties for all accidents in our dataset, where a casualty is either a person injured or a person killed. The plot visualizes the probability density function (pdf) of total casualties of car crashes in NYC. It shows the distribution of car crash casualties in NYC and how likely each amount is.
+
+```{r , echo=FALSE}
+nyc_crashes$TOTAL.CASUALTIES <- nyc_crashes$NUMBER.OF.PERSONS.INJURED + nyc_crashes$NUMBER.OF.PERSONS.KILLED
+threshold <- quantile(nyc_crashes$TOTAL.CASUALTIES, 0.9995, na.rm=TRUE)
+filtered_data <- nyc_crashes[nyc_crashes$TOTAL.CASUALTIES <= threshold,]
+density_estimates <- density(filtered_data$TOTAL.CASUALTIES, na.rm=TRUE)
+
+plot(density_estimates,
+     main = "Density of Total Casualties of Car Crashes in NYC",
+     xlab = "Number of Casualties",
+     ylab = "Density",
+     col = "blue",
+     lwd = 2)
+```
+
+This plot suggests that based on our data, car crashes in NYC are most likely to result in no casualties, evidenced by the density for 0 casualties being by far the highest amount. As the number of casualties increases, a large drop is seen. However, there is likelihood for a car accident to result in 1 or 2 casualties, but past that the likelihood drops to virtually 0. This shows that more severe crashes are much less likely in NYC.
+
+{{< pagebreak >}}
+
+## Average Accidents per Day per Season Boxplot
+
+Next, we asked ourselves - is an accident more or less likely to occur during a specific season? For this, we turned each date into a season and calculated the number of car crashes per day for each season. The, we plotted 4 boxplots to represent each season portraying the number of car crashes per day.
+
+```{r, echo = FALSE}
+conv_season <- function(date) {
+  m <- as.numeric(format(date, "%m"))
+  if(m == 12 || m == 1 || m == 2){
+    return("Winter")
+  }else if(m == 3 || m == 4 || m == 5){
+    return("Spring")
+  }else if(m == 6 || m == 7 || m == 8){
+    return("Summer")
+  }else{
+    return("Fall")
+  }
+}
+daily_counts <- data.frame(Date = unique(nyc_crashes$CRASH.DATE))
+daily_counts$Season <- sapply(daily_counts$Date, conv_season)
+daily_counts$Count <- sapply(daily_counts$Date, function(date) {
+  sum(nyc_crashes$CRASH.DATE == date)
+})
+boxplot(Count ~ Season, data = daily_counts,
+        xlab = "Season", ylab = "Number of Accidents per Day",
+        main = "Average Daily Accidents per Season",
+        yaxt = "n", yaxs = "i", ylim = c(0, 1300),
+        col = c("chocolate2", "mistyrose", "khaki1", "slategray1"))
+axis(2, las = 2, at = seq(from = 0, to = 1200, by = 300), labels =  seq(from = 0, to = 1200, by = 300))
+
+
+```
+
+As we can see, there is a relatively similar amount of car crashes across all the seasons, suggesting that the season does not significantly affect the likelihood of crashes occurring. One interesting point is that there is a much larger variance and spread of car crashes per day in the fall while there is a significantly smaller variance of car crashes per day in the summer. There is also an outlier in the Winter, where over 1200 crashes happened on one day. However, this is just an outlier since the median number of crashes in Winter is slightly lower than the median number of crashes in the Summer and Fall.
+
+{{< pagebreak >}}
+
+## Number of Cars Involved in a Car Crash Histogram
+
+We decided to find out how many cars were involved in each accident. While there wasn't a column for the number of cars involved, there were 5 columns for vehicle type, so we counted each nonempty entry as a car involved.
+
+```{r, echo = FALSE}
+num_cars <- data.frame(Date = (nyc_crashes$CRASH.DATE))
+num_cars$cars = (nyc_crashes$VEHICLE.TYPE.CODE.1!= "") + (nyc_crashes$VEHICLE.TYPE.CODE.2!= "") + (nyc_crashes$VEHICLE.TYPE.CODE.3!= "") + (nyc_crashes$VEHICLE.TYPE.CODE.4!= "") + (nyc_crashes$VEHICLE.TYPE.CODE.5!= "")
+hist(num_cars$cars, col = c('lightgreen', 'limegreen', 'darkolivegreen4','green4', 'darkgreen', 'black'), main = strwrap("The number of Cars Involved in each Accident and its Frequency", 30), xlab = 'The Number of Cars involved', ylim = c(0, 1500000), yaxt = 'n', ylab = "")
+axis(2, las = 2)
+```
+
+As the histogram shows, the highest frequency of cars involved in a given car crash peak at 2 cars, with lower frequencies otherwise. The number of crashes at 3+ cars are relatively low, implying the rarity of largescale accidents and the commonality of lower scale, regular accidents involving 2 cars. There is a little under 500 000 accidents involving just one car, which can mean the driver was inattentive and crashed into something or crashed into a pedestrian/cyclist.
+
+{{< pagebreak >}}
+
+## 5 Most Common Reasons for Car Crashes
+
+We decided to find the 5 most common specified reasons for car crashes in New York. While a majority of the causes was unspecified or other, we decided not to include those in our chart.
+
+```{r, echo = FALSE}
+x <- table(nyc_crashes$CONTRIBUTING.FACTOR.VEHICLE.1)
+#x[order(-x)]
+
+count_distraction <- sum(nyc_crashes$CONTRIBUTING.FACTOR.VEHICLE.1 == "Driver Inattention/Distraction")
+count_yield <- sum(nyc_crashes$CONTRIBUTING.FACTOR.VEHICLE.1 == "Failure to Yield Right-of-Way")
+count_following <- sum(nyc_crashes$CONTRIBUTING.FACTOR.VEHICLE.1 == "Following Too Closely")
+count_backing <- sum(nyc_crashes$CONTRIBUTING.FACTOR.VEHICLE.1 == "Backing Unsafely")
+count_other <- sum(nyc_crashes$CONTRIBUTING.FACTOR.VEHICLE.1 == "Other Vehicular")
+colors <- c("coral", "lightblue", "lightgreen", "pink", "orange")
+perc <- (count_distraction + count_yield + count_following + count_backing + count_other) / length(nyc_crashes$CONTRIBUTING.FACTOR.VEHICLE.1[!is.na(nyc_crashes$CONTRIBUTING.FACTOR.VEHICLE.1)]) * 100
+data <- c(count_distraction, count_yield, count_following, count_backing, count_other)
+categories <- c("Driver Inattention", "Failure to Yield Right of Way", "Following Too Closely", "Backing Unsafely", "Other Vehicular")
+pie(data, labels = categories, col = colors , main = strwrap(paste0("Top 5 Specified Reasons for Car Crashes (", round(perc, 2), "% of All Crashes)"), 35))
+```
+
+This plot displays the distribution of the most common reasons for car crashes in New York. As we can see, a high portion of crashes are due to driver inattention (possibly due to using their phone while driving, or generally not paying attention), while the other reasons are similarly represented at a much smaller amount. These reasons include Failure to Yield Right of Way, Following Too Closely, and Backing Unsafely.
+
+{{< pagebreak >}}
+
+# Regression
+
+```{r, echo = FALSE}
+weatherdata<-read.csv("New York City,USA 2020-09-01 to 2022-12-31.csv")
+
+merged_data3 <- merge(daily_counts, weatherdata, by.x="Date", by.y="datetime")
+model <- lm(Count ~ precip, data = merged_data3)
+summary(model)
+plot(merged_data3$precip, merged_data3$Count,
+     xlab="Precipitation", ylab="Number of Crashes",
+     main="Total Number of Car Crashes vs Precipitation per Day in NYC", yaxt = 'n')
+axis(2, las = 2)
+abline(model, col="red")
+```
+
+This plot shows a linear regression over a plot of car crashes vs precipitation in NYC. The summary of the regression indicates that as there is a one unit increase in precipitation, the average number of car crashes increases by 0.04545. The intercept shows that the estimated average number of car crashes on a day with no precipitation in NYC is 294.69. The precipitation coefficient is not statistically significant because of its high p-value of 0.876, and the t-value of 0.156 further reinforces the lack of statistical significance in the coefficient.
+
+{{< pagebreak >}}
+
+```{r}
+# Create the faceted heatmap with sorted weekdays
+library(ggplot2)
+library(viridis)
+
+nyc_crashes$WEEKDAY <- weekdays(nyc_crashes$CRASH.DATE)
+borough_weekday_subset <- nyc_crashes[(nyc_crashes$BOROUGH!=""),]
+
+borough_crash_counts <- as.data.frame(table(borough_weekday_subset$BOROUGH, borough_weekday_subset$WEEKDAY))
+
+colnames(borough_crash_counts) <- c("Borough", "Weekday", "Count")
+weekday_order <- c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" )
+
+avg_borough <- data.frame(Borough = unique(borough_crash_counts$Borough))
+avg_borough$Average <- sapply(avg_borough$Borough, function(borough){
+  mean(borough_crash_counts$Count[borough_crash_counts$Borough == borough])
+})
+
+borough_crash_counts$Count_avg <- apply(borough_crash_counts, MARGIN = 1, FUN = function(row){
+  return(as.numeric(row[3]) - as.numeric(avg_borough$Average[avg_borough$Borough == row[1]]))
+})
+
+ggplot(borough_crash_counts, aes(x = Borough, y = factor(Weekday, levels = rev(weekday_order)), fill = Count_avg)) +
+  geom_tile(color = "white", size = 0.1) +
+  coord_equal() +
+  labs(
+    x = "Borough",
+    y = "Day of Week",
+    title = "Number of Crashes Over/Under Average\nper Day of Week in Each Borough",
+    fill = "Number of\n Accidents"
+  ) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1) 
+  ) +
+  scale_fill_viridis() +
+  theme(plot.title = element_text(hjust = 0.5)) 
+
+```
+
+```{r, echo=FALSE, eval=FALSE}
+# Trash Code
+vehicle_counts <- table(nyc_crashes$VEHICLE.TYPE.CODE.1)
+
+# Sort the counts in descending order
+sorted_counts <- sort(vehicle_counts, decreasing = TRUE)
+
+# Extract the top 5 most common vehicle types
+top_5_vehicle_types <- head(names(sorted_counts), 5)
+
+# Print the top 5 vehicle types
+print(top_5_vehicle_types)
+
+top_5_crashes <- nyc_crashes[nyc_crashes$VEHICLE.TYPE.CODE.1 %in% top_5_vehicle_types,]
+
+library(ggplot2)
+
+covid_cases <- read.csv("cases-by-day.csv")
+covid_cases$date_of_interest <- as.Date(covid_cases$date_of_interest,format = "%m/%d/%Y")
+
+covid_cases <- merge(daily_counts, covid_cases, by.x = "Date", by.y = "date_of_interest", all = TRUE)
+
+
+
+
+
+
+#borough_avgs <- data.frame(DATE = unique(nyc_crashes$CRASH.DATE))
+#borough_avgs$BRONX <- sapply(borough_avgs$DATE, function(date) { nrow(nyc_crashes[nyc_crashes$CRASH.DATE == date & nyc_crashes$BOROUGH == "BRONX",])})
+
+#bronx <- nyc_crashes[nyc_crashes$BOROUGH == "BRONX",]
+#bronx_dates <- factor(bronx$CRASH.DATE[!is.na(bronx$CRASH.DATE)])
+#avg_bronx <- mean(as.numeric(table(bronx_dates)))
+
+
+#nrow(nyc_crashes[nyc_crashes$BOROUGH == "BRONX",])
+```
+
+```{r}
+nyc_crashes$ZIP.CODE <- as.character(nyc_crashes$ZIP.CODE)
+nyc_crashes$ZIP.CODE <- sub("\\.0$", "", nyc_crashes$ZIP.CODE)
+zip_counts <- nyc_crashes %>%
+group_by(ZIP.CODE) %>%
+summarize(count = n())
+nyc_zip_boundaries <- st_read("zipcodes.geojson")
+merged_zip_data <- left_join(nyc_zip_boundaries, zip_counts, by = c("ZIPCODE" = "ZIP.CODE"))
+ggplot(merged_zip_data) +
+  geom_sf(aes(fill = count)) +
+  scale_fill_gradient(low = "lightyellow", high = "darkred", 
+                      name = "Count of Car Crashes") +
+  ggtitle("Heatmap of Car Crashes by NYC ZIP Code") +
+  labs(x = "Longitude", y = "Latitude", 
+       caption = "Data: NYC Car Crash Data") +
+  theme_minimal()
+
+
+```
+
+# Resources
+
+-   [Primary Dataset](https://catalog.data.gov/dataset/motor-vehicle-collisions-crashes/resource/b5a431d2-4832-43a6-9334-86b62bdb033f) - Motor Vehicle Collisions in New York City, New York
+
+-   [Weather data from Visual Crossing](https://www.visualcrossing.com/weather/weather-data-services/New%20York%20City,USA/metric/2019-01-01/2022-12-31) - Weather in New York City, New York from 2020-09-01 to 2022-12-31
+
+-   [Road Traffic Injuries](https://www.who.int/news-room/fact-sheets/detail/road-traffic-injuries) - World Health Organization
