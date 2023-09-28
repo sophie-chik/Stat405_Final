@@ -17,12 +17,15 @@ format:
 
 The Motor Vehicle Collisions dataset contains information about car crashes in NYC from the years 2016-2023. It contains information from all police reported motor vehicle collisions in NYC. We accessed the dataset from data.gov, provided by the City of New York. Each entry represents a car crash that occured in New York City. The dataset contains 28 columns that describe a variety of data, including time of accident, accident severity(deaths/injuries), pinpointed locations (neighborhoods/streets), causes for the accident, and vehicle type. Using this data, we hope to analyze and identify chronological and geographical patterns in New York City to pinpoint high-risk environments and circumstances. We are assuming that the data is continuous in terms of time, and that the specific timestamps and event details are accurate.
 
-```{r setup, include=FALSE, echo = FALSE}
+```{r setup, echo = FALSE}
+# KEEP THIS!
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE, fig.width=9, fig.height=6)
+
 # Sophie: 
-#knitr::opts_knit$set(root.dir = "/Users/sophiochikhladze/Desktop/Stat_405/Stat405_Data")
+knitr::opts_knit$set(root.dir = "/Users/sophiochikhladze/Desktop/Stat_405/Stat405_Data")
 
 # Sawyer: 
-knitr::opts_knit$set(root.dir = "/Users/danielcufino/Desktop/STAT 405")
+#knitr::opts_knit$set(root.dir = "/Users/danielcufino/Desktop/STAT 405")
 
 # Adarsh:
 #knitr::opts_knit$set(root.dir = "")
@@ -31,7 +34,7 @@ knitr::opts_knit$set(root.dir = "/Users/danielcufino/Desktop/STAT 405")
 #knitr::opts_knit$set(root.dir = "")
 ```
 
-```{r, echo = FALSE}
+```{r}
 options(stringsAsFactors = FALSE)
 nyc_crashes <- read.csv("Motor_Vehicle_Collisions_-_Crashes.csv")
 ```
@@ -44,7 +47,7 @@ nyc_crashes <- read.csv("Motor_Vehicle_Collisions_-_Crashes.csv")
 
 First, we decided to plot a time series of the number of car crashes each day starting from 2012 up until 2023. Each point represents the total number of crashes that occurred on each day, plotted chronologically.
 
-```{r, echo=FALSE, include=FALSE}
+```{r}
 nyc_crashes$CRASH.DATE <- as.Date(nyc_crashes$CRASH.DATE,format = "%m/%d/%Y")
 dates <- factor(nyc_crashes$CRASH.DATE[!is.na(nyc_crashes$CRASH.DATE)])
 plot(as.Date(levels(dates)), as.numeric(table(dates)), type = "l", xlab = "Date", ylab = "Number of Car Crashes", main = "Number of Car Crashes in NYC over Time", yaxt = "n")
@@ -59,7 +62,7 @@ Looking at the number of crashes over time, from 2012 to 2023, we can see that t
 
 For this plot, we grouped the data by 5 boroughs of New York City: Bronx, Brooklyn, Manhattan, Queens, and Staten Island. First, we calculated the total number of car crashes in each borough, and plotted it in tens of thousands since there was a large amount. Then, we wanted to see if the number of casualties in each borough was proportional to the number of car crashes. Therefore, we calculated the total number of deaths from car accidents per borough and plotted that beside the number of car crashes.
 
-```{r, echo = FALSE, include=FALSE}
+```{r}
 dead_boroughs <- factor(nyc_crashes$BOROUGH[nyc_crashes$NUMBER.OF.PERSONS.KILLED > 0 & nyc_crashes$BOROUGH!=""])
 boroughs <- factor(nyc_crashes$BOROUGH[nyc_crashes$BOROUGH!=""])
 num_crashes <- as.numeric(table(boroughs)) / 10000
@@ -88,7 +91,7 @@ From the left plot, we can see that Brooklyn has the highest amount of crashes, 
 
 This is a density plot visualizing total casualties for all accidents in our dataset, where a casualty is either a person injured or a person killed. The plot visualizes the probability density function (pdf) of total casualties of car crashes in NYC. It shows the distribution of car crash casualties in NYC and how likely each amount is.
 
-```{r , echo=FALSE, include=FALSE}
+```{r}
 nyc_crashes$TOTAL.CASUALTIES <- nyc_crashes$NUMBER.OF.PERSONS.INJURED + nyc_crashes$NUMBER.OF.PERSONS.KILLED
 threshold <- quantile(nyc_crashes$TOTAL.CASUALTIES, 0.9995, na.rm=TRUE)
 filtered_data <- nyc_crashes[nyc_crashes$TOTAL.CASUALTIES <= threshold,]
@@ -110,7 +113,7 @@ This plot suggests that based on our data, car crashes in NYC are most likely to
 
 Next, we asked ourselves - is an accident more or less likely to occur during a specific season? For this, we turned each date into a season and calculated the number of car crashes per day for each season. The, we plotted 4 boxplots to represent each season portraying the number of car crashes per day.
 
-```{r, echo = FALSE, include=FALSE}
+```{r}
 conv_season <- function(date) {
   m <- as.numeric(format(date, "%m"))
   if(m == 12 || m == 1 || m == 2){
@@ -146,7 +149,7 @@ As we can see, there is a relatively similar amount of car crashes across all th
 
 We decided to find out how many cars were involved in each accident. While there wasn't a column for the number of cars involved, there were 5 columns for vehicle type, so we counted each nonempty entry as a car involved.
 
-```{r, echo = FALSE, include=FALSE}
+```{r}
 num_cars <- data.frame(Date = (nyc_crashes$CRASH.DATE))
 num_cars$cars = (nyc_crashes$VEHICLE.TYPE.CODE.1!= "") + (nyc_crashes$VEHICLE.TYPE.CODE.2!= "") + (nyc_crashes$VEHICLE.TYPE.CODE.3!= "") + (nyc_crashes$VEHICLE.TYPE.CODE.4!= "") + (nyc_crashes$VEHICLE.TYPE.CODE.5!= "")
 hist(num_cars$cars, col = c('lightgreen', 'limegreen', 'darkolivegreen4','green4', 'darkgreen', 'black'), main = strwrap("The number of Cars Involved in each Accident and its Frequency", 30), xlab = 'The Number of Cars involved', ylim = c(0, 1500000), yaxt = 'n', ylab = "")
@@ -161,7 +164,7 @@ As the histogram shows, the highest frequency of cars involved in a given car cr
 
 We decided to find the 5 most common specified reasons for car crashes in New York. While a majority of the causes was unspecified or other, we decided not to include those in our chart.
 
-```{r, echo = FALSE, include=FALSE}
+```{r}
 x <- table(nyc_crashes$CONTRIBUTING.FACTOR.VEHICLE.1)
 #x[order(-x)]
 
@@ -183,7 +186,7 @@ This plot displays the distribution of the most common reasons for car crashes i
 
 # Regression
 
-```{r, echo = FALSE, include=FALSE}
+```{r}
 weatherdata<-read.csv("New York City,USA 2020-09-01 to 2022-12-31.csv")
 
 merged_data3 <- merge(daily_counts, weatherdata, by.x="Date", by.y="datetime")
@@ -204,7 +207,7 @@ This plot shows a linear regression over a plot of car crashes vs precipitation 
 
 ## Number of Car Accidents Over/Under average per Day of Week
 
-```{r, echo = FALSE, include=FALSE}
+```{r}
 # Create the faceted heatmap with sorted weekdays
 library(ggplot2)
 library(viridis)
@@ -238,14 +241,14 @@ ggplot(borough_crash_counts, aes(x = Borough, y = factor(Weekday, levels = rev(w
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1) 
   ) +
-  scale_fill_viridis() +
+  scale_fill_gradient2(low = "green3", mid = "gold", high = "red") +
   theme(plot.title = element_text(hjust = 0.5)) 
 
 ```
 
 ## Number of Car Crashes per Zipcode Heatmap
 
-```{r, echo = FALSE, include=FALSE}
+```{r}
 library(tidyverse)
 library(sf)
 
@@ -254,7 +257,7 @@ nyc_crashes$ZIP.CODE <- sub("\\.0$", "", nyc_crashes$ZIP.CODE)
 zip_counts <- nyc_crashes %>%
 group_by(ZIP.CODE) %>%
 summarize(count = n())
-nyc_zip_boundaries <- st_read("zipcodes.geojson")
+nyc_zip_boundaries <- st_read("zipcodes.geojson", quiet = TRUE)
 merged_zip_data <- left_join(nyc_zip_boundaries, zip_counts, by = c("ZIPCODE" = "ZIP.CODE"))
 ggplot(merged_zip_data) +
   geom_sf(aes(fill = count)) +
@@ -266,9 +269,7 @@ ggplot(merged_zip_data) +
   theme_minimal()
 ```
 
-This heatmap provides a visualization of the car crash distribution across ZIP codes in New York City and displays more and less accident-prone zones. The ZIP codes shaded darker show that a higher number of car crashes take place in these areas. Some of these darker regions include areas where major bridges lead into and out of Manhattan to Queens and Brooklyn, which might be a factor for why there is a high volume of crashes in these areas. The lighter shaded ZIP codes on the map signify regions with fewer crashes. Generally, there are less crashes in the borough of Staten Island based on this graphic, which might be due to a lower population. 
-
-
+This heatmap provides a visualization of the car crash distribution across ZIP codes in New York City and displays more and less accident-prone zones. The ZIP codes shaded darker show that a higher number of car crashes take place in these areas. Some of these darker regions include areas where major bridges lead into and out of Manhattan to Queens and Brooklyn, which might be a factor for why there is a high volume of crashes in these areas. The lighter shaded ZIP codes on the map signify regions with fewer crashes. Generally, there are less crashes in the borough of Staten Island based on this graphic, which might be due to a lower population.
 
 Trash code:
 
@@ -340,8 +341,8 @@ ggplot(hourly_crashes, aes(x = factor(Hour), y = Count)) +
         plot.title = element_text(hjust = 0.5))
 
 ```
-The polar bar chart shows the number of car crashes in New York City by hour of the day. Each bar segment corresponds to an hour, labeled from 0:00 to 23:00. There is a substantial increase in the amount of crashes during the late afternoon hours known as “rush hour”, peaking around 16:00 (4 PM). This is because there is increased traffic as people commute back from work. The number of crashes decreases significantly in the early morning hours, showing that there are fewer incidents when there are fewer vehicles on the road. 
 
+The polar bar chart shows the number of car crashes in New York City by hour of the day. Each bar segment corresponds to an hour, labeled from 0:00 to 23:00. There is a substantial increase in the amount of crashes during the late afternoon hours known as "rush hour", peaking around 16:00 (4 PM). This is because there is increased traffic as people commute back from work. The number of crashes decreases significantly in the early morning hours, showing that there are fewer incidents when there are fewer vehicles on the road.
 
 # Resources
 
