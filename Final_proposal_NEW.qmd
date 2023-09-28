@@ -266,6 +266,10 @@ ggplot(merged_zip_data) +
   theme_minimal()
 ```
 
+This heatmap provides a visualization of the car crash distribution across ZIP codes in New York City and displays more and less accident-prone zones. The ZIP codes shaded darker show that a higher number of car crashes take place in these areas. Some of these darker regions include areas where major bridges lead into and out of Manhattan to Queens and Brooklyn, which might be a factor for why there is a high volume of crashes in these areas. The lighter shaded ZIP codes on the map signify regions with fewer crashes. Generally, there are less crashes in the borough of Staten Island based on this graphic, which might be due to a lower population. 
+
+
+
 Trash code:
 
 ```{r, echo=FALSE, eval=FALSE}
@@ -326,7 +330,7 @@ ggplot(hourly_crashes, aes(x = factor(Hour), y = Count)) +
   coord_polar(start = 0) +
   labs(
     title = "NYC Car Crashes by Hour of Day",
-    x = "Hour of Day",
+    x = "",
     y = ""
   ) +
   theme_minimal() +
@@ -336,6 +340,8 @@ ggplot(hourly_crashes, aes(x = factor(Hour), y = Count)) +
         plot.title = element_text(hjust = 0.5))
 
 ```
+The polar bar chart shows the number of car crashes in New York City by hour of the day. Each bar segment corresponds to an hour, labeled from 0:00 to 23:00. There is a substantial increase in the amount of crashes during the late afternoon hours known as “rush hour”, peaking around 16:00 (4 PM). This is because there is increased traffic as people commute back from work. The number of crashes decreases significantly in the early morning hours, showing that there are fewer incidents when there are fewer vehicles on the road. 
+
 
 # Resources
 
