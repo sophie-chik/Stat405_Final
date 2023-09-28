@@ -19,10 +19,10 @@ The Motor Vehicle Collisions dataset contains information about car crashes in N
 
 ```{r setup, include=FALSE, echo = FALSE}
 # Sophie: 
-knitr::opts_knit$set(root.dir = "/Users/sophiochikhladze/Desktop/Stat_405/Stat405_Data")
+#knitr::opts_knit$set(root.dir = "/Users/sophiochikhladze/Desktop/Stat_405/Stat405_Data")
 
 # Sawyer: 
-#knitr::opts_knit$set(root.dir = "")
+knitr::opts_knit$set(root.dir = "/Users/danielcufino/Desktop/STAT 405")
 
 # Adarsh:
 #knitr::opts_knit$set(root.dir = "")
@@ -32,6 +32,7 @@ knitr::opts_knit$set(root.dir = "/Users/sophiochikhladze/Desktop/Stat_405/Stat40
 ```
 
 ```{r, echo = FALSE}
+options(stringsAsFactors = FALSE)
 nyc_crashes <- read.csv("Motor_Vehicle_Collisions_-_Crashes.csv")
 ```
 
@@ -306,7 +307,33 @@ covid_cases <- merge(daily_counts, covid_cases, by.x = "Date", by.y = "date_of_i
 ```
 
 ```{r}
+#install.packages("dplyr")
+#install.packages("ggplot2")
+#install.packages("lubridate")
+library(dplyr)
+library(ggplot2)
+library(lubridate)
 
+nyc_crashes$Hour <- hour(hm(nyc_crashes$CRASH.TIME))
+
+hourly_crashes <- nyc_crashes %>%
+  group_by(Hour) %>%
+  summarise(Count = n()) %>%
+  arrange(Hour)
+
+ggplot(hourly_crashes, aes(x = factor(Hour), y = Count)) +
+  geom_bar(stat = "identity", fill = "darkorange", show.legend = FALSE) +
+  coord_polar(start = 0) +
+  labs(
+    title = "NYC Car Crashes by Hour of Day",
+    x = "Hour of Day",
+    y = ""
+  ) +
+  theme_minimal() +
+  scale_x_discrete(labels = paste0(0:23, ":00")) + 
+  theme(axis.text.y = element_blank(), 
+        axis.ticks.y = element_blank(),
+        plot.title = element_text(hjust = 0.5))
 
 ```
 
