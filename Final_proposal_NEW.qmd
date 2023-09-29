@@ -336,7 +336,7 @@ ggplot(hourly_crashes, aes(x = factor(Hour), y = Count)) +
         plot.title = element_text(hjust = 0.5)) 
 ```
 
-There is a substantial increase in the amount of crashes during the late afternoon hours known as "rush hour", peaking around 16:00 (4 PM). This is because there is increased traffic as people commute back from work. The number of crashes decreases significantly in the early morning hours, showing that there are fewer incidents when there are fewer vehicles on the road.
+There is a substantial increase in the amount of crashes during the late afternoon hours known as "rush hour", peaking around 4:00 PM. This is because there is increased traffic as people commute back from work. The number of crashes decreases significantly in the early morning hours, showing that there are fewer incidents when there are fewer vehicles on the road.
 
 {{< pagebreak >}}
 
