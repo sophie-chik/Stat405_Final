@@ -113,7 +113,7 @@ This plot suggests that based on our data, car crashes in NYC are most likely to
 
 {{< pagebreak >}}
 
-## Average Accidents per Day per Season 
+## Average Accidents per Day per Season
 
 Next, we asked ourselves - is an accident more or less likely to occur during a specific season? For this, we turned each date into a season and calculated the number of car crashes per day for each season. The, we plotted 4 boxplots to represent each season portraying the number of car crashes per day.
 
@@ -383,10 +383,9 @@ ggplot(type_of_car_accidents, aes(x = Var1, y = Freq, fill = Var2)) +
 
 ```
 
-As we can see, there is a relatively large portion of each bar designated as 'Other', displaying the widespread variety of vehicles in accidents. Besides that, the next most common vehicle is a passenger vehicle. After that, the most prevalent was a station wagon or a sport utility vehicle. The last, much smaller category included in the plot is Taxi. This order remains the same throughout all years. Furthermore, we see a sharp decrease in the number of accidents in 2020, most likely due to the onset of COVID, but what's interesting to note is that accident numbers have not returned to what they once were post COVID. We can also see that the relative proportion of accidents with passenger vehicles, station wagons, and taxi's remain similar throughout the years.
-{{< pagebreak >}}
+As we can see, there is a relatively large portion of each bar designated as 'Other', displaying the widespread variety of vehicles in accidents. Besides that, the next most common vehicle is a passenger vehicle. After that, the most prevalent was a station wagon or a sport utility vehicle. The last, much smaller category included in the plot is Taxi. This order remains the same throughout all years. Furthermore, we see a sharp decrease in the number of accidents in 2020, most likely due to the onset of COVID, but what's interesting to note is that accident numbers have not returned to what they once were post COVID. We can also see that the relative proportion of accidents with passenger vehicles, station wagons, and taxi's remain similar throughout the years. {{< pagebreak >}}
 
-## Density of Casualties by Contributing Factor 
+## Density of Casualties by Contributing Factor
 
 This is a density plot visualizing total casualties for all accidents by contributing factor in our data set, where a casualty is either a person injured or a person killed. The plot visualizes the probability density function (pdf) of total casualties of car crashes in NYC. It shows the distribution of car crash casualties in NYC for 4 most common contributing factors. This plot gives us insight into how different contributing factors can influence the number of casualties.
 
@@ -416,12 +415,11 @@ ggplot(subset_data, aes(x = NUMBER.OF.PERSONS.KILLED + NUMBER.OF.PERSONS.INJURED
 
 ```
 
-The plot shows that there is a large difference between low casualty (0 or 1) accidents caused by Failure to Yield Right of Way as compared to the rest of the contributing factors. However, for higher casualty incidents (greater than 2), this difference largely decreases and there is a relatively similar amount of high casualty accidents caused by Failure to Yield Right of Way as to caused by Driver Inattention and Distraction. This suggests that there is a much higher likelihood of a low casualty accident being caused by Failure to Yield Right of Way than a high casualty accident. Furthermore, accidents with 1 or more casualty are more likely to be caused by failure to yield, followed by driver inattention.
-{{< pagebreak >}}
+The plot shows that there is a large difference between low casualty (0 or 1) accidents caused by Failure to Yield Right of Way as compared to the rest of the contributing factors. However, for higher casualty incidents (greater than 2), this difference largely decreases and there is a relatively similar amount of high casualty accidents caused by Failure to Yield Right of Way as to caused by Driver Inattention and Distraction. This suggests that there is a much higher likelihood of a low casualty accident being caused by Failure to Yield Right of Way than a high casualty accident. Furthermore, accidents with 1 or more casualty are more likely to be caused by failure to yield, followed by driver inattention. {{< pagebreak >}}
 
 ## Number of Crashes by Weather Conditions
 
-The Box-Dot plot below displays the number of crashes that occur for a given day for the various categories of weather conditions. The weather conditions are listed on the x axis, while the number of car accidents is on the y axis. Each blue dot represents a day - its x coordinate is the weather that day, and the y coordinate is the number of accidents that occurred that day. The boxes show the first and third quartiles, as well as the median number of car crashes for each weather.
+The Box-Dot plot below displays the number of crashes that occur for a given day for the various categories of weather conditions. The weather conditions are listed on the x axis, while the number of car accidents is on the y axis. Each blue dot represents a day - its x coordinate is the weather that day, and the y coordinate is the number of accidents that occurred that day. The boxes show the first and third quartiles, as well as the median number of car crashes for each weather. This plot, in addition to the primary data set, utilizes the secondary data set, Weather in New York City, New York from 2020-09-01 to 2022-12-31 \[2\].
 
 ```{r Number of Crashes by Weather Conditions, fig.cap="Number of Crashes by Weather Conditions"}
 merged_data3$icon[merged_data3$icon == "clear-day"] <- "clear"
@@ -447,8 +445,7 @@ geom_boxplot( width = 0.97, fill = "transparent") +
 
 ```
 
-The plot shows that from 09/01/2020 to 12/31/2022, there was a majority of rainy days, followed by clear days, and partly cloudy days. This can be concluded by the number of blue dots on each section of the x axis. The median number of car accidents for a clear day is slightly higher than the number of car accidents on the rainy days. However, the rain box has two outliers, where the highest number of car accidents happened out of all days. What is quite surprising to note is that the median number of accidents on snowy days is lower than the median number of accidents on clear days, which may be the case because less people are out on the road during snowy weather.
-{{< pagebreak >}}
+The plot shows that from 09/01/2020 to 12/31/2022, there was a majority of rainy days, followed by clear days, and partly cloudy days. This can be concluded by the number of blue dots on each section of the x axis. The median number of car accidents for a clear day is slightly higher than the number of car accidents on the rainy days. However, the rain box has two outliers, where the highest number of car accidents happened out of all days. What is quite surprising to note is that the median number of accidents on snowy days is lower than the median number of accidents on clear days, which may be the case because less people are out on the road during snowy weather. {{< pagebreak >}}
 
 # Resources
 
