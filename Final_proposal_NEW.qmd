@@ -206,7 +206,11 @@ model <- lm(Count ~ Precipitation, data = merged_data3)
 as_flextable(model,  col_keys = c("Intercept", "Precipitation \n Coefficient"))
 ```
 
-```{r Regression plot, fig.cap="Total Number of Car Crashes vs Precipitation per Day in NYC"}
+The plot depicting the relationship, as well as further analysis, is on the next page.
+
+{{< pagebreak >}}
+
+```{r Regression plot, fig.cap="Total Number of Car Crashes vs Precipitation per Day in NYC", fig.width = 6, fig.height = 4}
 plot(merged_data3$Precipitation, merged_data3$Count,
      xlab="Precipitation", ylab="Number of Crashes",
      main="Total Number of Car Crashes vs Precipitation per Day in NYC", yaxt = 'n')
