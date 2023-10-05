@@ -38,6 +38,9 @@ knitr::opts_knit$set(root.dir = "/Users/sophiochikhladze/Desktop/Stat_405/Stat40
 ```{r Load Dataset}
 options(stringsAsFactors = FALSE)
 nyc_crashes <- read.csv("Motor_Vehicle_Collisions_-_Crashes.csv")
+library(tidyverse)
+library(grid)
+library(gridExtra)
 ```
 
 {{< pagebreak >}}
@@ -50,10 +53,23 @@ First, we decided to plot a time series of the number of car crashes each day st
 
 ```{r Crashes Time Series,fig.cap="Number of Car Crashes over Time"}
 nyc_crashes$CRASH.DATE <- as.Date(nyc_crashes$CRASH.DATE,format = "%m/%d/%Y")
-dates <- factor(nyc_crashes$CRASH.DATE[!is.na(nyc_crashes$CRASH.DATE)])
-plot(as.Date(levels(dates)), as.numeric(table(dates)), type = "l", xlab = "Date", ylab = "Number of Car Crashes", main = "Number of Car Crashes in NYC over Time", yaxt = "n")
-axis(2, las = 2)
-#mtext(text = "Data: Motor Vehicle Collisions in New York City, New York", side = 1, line = 4, adj = 1)
+
+dates <- nyc_crashes %>%
+  filter(!is.na(CRASH.DATE)) %>%
+  group_by(CRASH.DATE) %>%
+  summarise(Count = n()) %>%
+  ungroup()
+
+ggplot(dates, aes(x = CRASH.DATE, y = Count)) +
+  geom_line(color = "royalblue") +
+  labs(x = "Date",
+       y = "Number of Car Crashes",
+       title = "Number of Car Crashes in NYC over Time") +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1) 
+  ) +
+  scale_x_date(date_labels = "%Y", breaks = seq(min(dates$CRASH.DATE), max(dates$CRASH.DATE), by = "1 year"))
+
 ```
 
 Looking at the number of crashes over time, from 2012 to 2023, we can see that the number of crashes remained fairly consistent from 2012 to the beginning of 2020, with certain exceptions like big spikes or drops. Until 2020, there is no year with an exceptionally low or high number of crashes. However, we see a clear change in the number of crashes in the beginning of 2020, which can be interpreted as the effects of COVID-19 as that is roughly the date it started. Less people had to go to work, school became virtual, and therefore less people were driving, leading to a lowered number of car crashes per day. We could also further study the exact dates of this drop versus when the lockdown started.
@@ -72,44 +88,35 @@ num_deaths <- as.numeric(table(dead_boroughs))
 y_ticks <- seq(0, 56, by = 8)
 par(mgp = c(1.8, 0.2, 0),
     tck = 0.02)
+
+borough_dist <- data.frame(
+  Borough = c("Bronx", "Brooklyn", "Manhattan", "Queens", "Staten Island"),
+  Num_Crashes = num_crashes,
+  Num_Deaths = num_deaths
+)
+
 layout(matrix(c(1, 2), nrow = 1, byrow = TRUE))
-barplot(num_crashes,
-        names.arg = c("Bronx", "Brooklyn", "Manhattan", "Queens", "Staten Island"),
-        col = c("lightblue"), las = 2, yaxt = "n", yaxs = "i", ylim = c(0, 46),
-        ylab = "Number of Crashes detected",
-        main = strwrap("# of Car Crashes per Borough, in tens of thousands", 25), axes = TRUE)
-axis(2, las = 2, at = y_ticks, labels = y_ticks)
-barplot(num_deaths,
-        names.arg = c("Bronx", "Brooklyn", "Manhattan", "Queens", "Staten Island"),
-        col = c("royalblue"), las = 2, ylab = "Number of Deaths", ylim = c(0,600),
-        main = strwrap("# of Deaths from Car Crashes per Borough", 25))
-#mtext(text = "Data: Motor Vehicle Collisions in New York City, New York", side = 1, line = 6, adj = 1)
+crashes <- ggplot(borough_dist, aes(x = Borough, y = Num_Crashes)) +
+  geom_bar(stat = "identity", fill = "lightblue") +
+  labs(x = NULL, y = "Number of Crashes detected") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ylim(0, 46) +
+  ggtitle("Number of Car Crashes \nper Borough, in tens of thousands")
+
+# Create a bar plot for the number of deaths
+deaths<- ggplot(borough_dist, aes(x = Borough, y = Num_Deaths)) +
+  geom_bar(stat = "identity", fill = "royalblue") +
+  labs(x = NULL, y = "Number of Deaths") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  ylim(0, 600) +
+  ggtitle("Number of Deaths from \nCar Crashes per Borough")
+
+grid.arrange(crashes, deaths, ncol = 2)
 ```
 
 From the left plot, we can see that Brooklyn has the highest amount of crashes, followed by Queens and Manhattan. Staten Island has the lowest number of crashes recorded, by a significant amount. Despite the fact that Staten Island has the highest number of cars per household, it is sensible that the rest of the boroughs have more car accidents, since there is more general traffic there. Furthermore, if we compare the number of crashes per borough to the number of casualties per borough, We can see that the proportions of deaths are similar to the number of accidents, except for Manhattan, which is slightly lower.
-
-{{< pagebreak >}}
-
-## The Density of Total Number of Casualties
-
-This is a density plot visualizing total casualties for all accidents in our dataset, where a casualty is either a person injured or a person killed. The plot visualizes the probability density function (pdf) of total casualties of car crashes in NYC. It shows the distribution of car crash casualties in NYC and how likely each amount is.
-
-```{r Density of Total Number of Casualties, fig.cap="The Density of Total Number of Casualties"}
-nyc_crashes$TOTAL.CASUALTIES <- nyc_crashes$NUMBER.OF.PERSONS.INJURED + nyc_crashes$NUMBER.OF.PERSONS.KILLED
-threshold <- quantile(nyc_crashes$TOTAL.CASUALTIES, 0.9995, na.rm=TRUE)
-filtered_data <- nyc_crashes[nyc_crashes$TOTAL.CASUALTIES <= threshold,]
-density_estimates <- density(filtered_data$TOTAL.CASUALTIES, na.rm=TRUE)
-
-plot(density_estimates,
-     main = "Density of Total Casualties of Car Crashes in NYC",
-     xlab = "Number of Casualties",
-     ylab = "Density",
-     col = "blue",
-     lwd = 2)
-#mtext(text = "Data: Motor Vehicle Collisions in New York City, New York", side = 1, line = 4, adj = 1)
-```
-
-This plot suggests that based on our data, car crashes in NYC are most likely to result in no casualties, evidenced by the density for 0 casualties being by far the highest amount. As the number of casualties increases, a large drop is seen. However, there is likelihood for a car accident to result in 1 or 2 casualties, but past that the likelihood drops to virtually 0. This shows that more severe crashes are much less likely in NYC.
 
 {{< pagebreak >}}
 
@@ -130,18 +137,26 @@ conv_season <- function(date) {
     return("Fall")
   }
 }
-daily_counts <- data.frame(Date = unique(nyc_crashes$CRASH.DATE))
-daily_counts$Season <- sapply(daily_counts$Date, conv_season)
-daily_counts$Count <- sapply(daily_counts$Date, function(date) {
-  sum(nyc_crashes$CRASH.DATE == date)
-})
-boxplot(Count ~ Season, data = daily_counts,
-        xlab = "Season", ylab = "Number of Accidents per Day",
-        main = "Average Daily Accidents per Season",
-        yaxt = "n", yaxs = "i", ylim = c(0, 1300),
-        col = c("chocolate2", "mistyrose", "khaki1", "slategray1"))
-axis(2, las = 2, at = seq(from = 0, to = 1200, by = 300), labels =  seq(from = 0, to = 1200, by = 300))
-#mtext(text = "Data: Motor Vehicle Collisions in New York City, New York", side = 1, line = 4, adj = 1)
+daily_counts <- nyc_crashes %>%
+  group_by(CRASH.DATE) %>%
+  summarize(Count = n()) %>%
+  rowwise() %>%
+  mutate(Season = conv_season(CRASH.DATE)) %>%
+  ungroup()
+
+ggplot(daily_counts, aes(x = Season, y = Count, fill = Season)) +
+  stat_boxplot(geom = "errorbar",
+               width = 0.15) + 
+  geom_boxplot() +
+  labs(x = "Season", y = "Number of Accidents per Day", 
+       title = "Average Daily Accidents per Season") +
+  ylim(0, 1300) +
+  scale_fill_manual(values = c("Winter" = "chocolate2", 
+                                "Spring" = "mistyrose", 
+                                "Summer" = "khaki1", 
+                                "Fall" = "slategray1")) +
+  scale_y_continuous(breaks = seq(from = 0, to = 1200, by = 300)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
 ```
 
@@ -165,31 +180,6 @@ As the histogram shows, the highest frequency of cars involved in a given car cr
 
 {{< pagebreak >}}
 
-## 5 Most Common Reasons for Car Crashes
-
-We decided to find the 5 most common specified reasons for car crashes in New York. While a majority of the causes was unspecified or other, we decided not to include those in our chart.
-
-```{r 5 Most Common Reasons for Car Crashes, fig.cap="5 Most Common Reasons for Car Crashes"}
-x <- table(nyc_crashes$CONTRIBUTING.FACTOR.VEHICLE.1)
-#x[order(-x)]
-
-count_distraction <- sum(nyc_crashes$CONTRIBUTING.FACTOR.VEHICLE.1 == "Driver Inattention/Distraction")
-count_yield <- sum(nyc_crashes$CONTRIBUTING.FACTOR.VEHICLE.1 == "Failure to Yield Right-of-Way")
-count_following <- sum(nyc_crashes$CONTRIBUTING.FACTOR.VEHICLE.1 == "Following Too Closely")
-count_backing <- sum(nyc_crashes$CONTRIBUTING.FACTOR.VEHICLE.1 == "Backing Unsafely")
-count_other <- sum(nyc_crashes$CONTRIBUTING.FACTOR.VEHICLE.1 == "Other Vehicular")
-colors <- c("coral", "lightblue", "lightgreen", "pink", "orange")
-perc <- (count_distraction + count_yield + count_following + count_backing + count_other) / length(nyc_crashes$CONTRIBUTING.FACTOR.VEHICLE.1[!is.na(nyc_crashes$CONTRIBUTING.FACTOR.VEHICLE.1)]) * 100
-data <- c(count_distraction, count_yield, count_following, count_backing, count_other)
-categories <- c("Driver Inattention", "Failure to Yield Right of Way", "Following Too Closely", "Backing Unsafely", "Other Vehicular")
-pie(data, labels = categories, col = colors , main = strwrap(paste0("Top 5 Specified Reasons for Car Crashes (", round(perc, 2), "% of All Crashes)"), 35))
-#mtext(text = "Data: Motor Vehicle Collisions in New York City, New York", side = 1, line = 4, adj = 1)
-```
-
-This plot displays the distribution of the most common reasons for car crashes in New York. As we can see, a high portion of crashes are due to driver inattention (possibly due to using their phone while driving, or generally not paying attention), while the other reasons are similarly represented at a much smaller amount. These reasons include Failure to Yield Right of Way, Following Too Closely, and Backing Unsafely.
-
-{{< pagebreak >}}
-
 # Regression
 
 This is a linear regression over a plot of car crashes vs precipitation in New York City, New York. Displayed in the table below are the intercept and the coefficient for precipitation.
@@ -199,7 +189,7 @@ This is a linear regression over a plot of car crashes vs precipitation in New Y
 library(flextable)
 weatherdata<-read.csv("New York City,USA 2020-09-01 to 2022-12-31.csv")
 
-merged_data3 <- merge(daily_counts, weatherdata, by.x="Date", by.y="datetime")
+merged_data3 <- merge(daily_counts, weatherdata, by.x="CRASH.DATE", by.y="datetime")
 colnames(merged_data3)[13] = "Precipitation"
 
 model <- lm(Count ~ Precipitation, data = merged_data3)
@@ -223,8 +213,6 @@ The summary of the regression indicates that as there is a one unit increase in 
 
 {{< pagebreak >}}
 
-# Plots using ggplot
-
 ## Number of Car Crashes Over/Under average per Day of Week
 
 The plot below demonstrates a heat map of the number of crashes over/under average per day of week per borough. The numbers represent daily averages for each borough subtracted from the number of crashes per day. This is to demonstrate how the number of crashes varies per day of week. Green represents below average number of crashes, yellow represents an average number of crashes, and orange and red represent an above average number of crashes.
@@ -234,22 +222,27 @@ The plot below demonstrates a heat map of the number of crashes over/under avera
 library(ggplot2)
 library(viridis)
 
-nyc_crashes$WEEKDAY <- weekdays(nyc_crashes$CRASH.DATE)
-borough_weekday_subset <- nyc_crashes[(nyc_crashes$BOROUGH!=""),]
 
-borough_crash_counts <- as.data.frame(table(borough_weekday_subset$BOROUGH, borough_weekday_subset$WEEKDAY))
+nyc_crashes <- nyc_crashes %>%
+  mutate(WEEKDAY = weekdays(CRASH.DATE)) %>%
+  filter(BOROUGH!="")
+
+borough_crash_counts <- nyc_crashes %>%
+  group_by(BOROUGH, WEEKDAY) %>%
+  summarise(Count = n())
 
 colnames(borough_crash_counts) <- c("Borough", "Weekday", "Count")
-weekday_order <- c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" )
 
-avg_borough <- data.frame(Borough = unique(borough_crash_counts$Borough))
-avg_borough$Average <- sapply(avg_borough$Borough, function(borough){
-  mean(borough_crash_counts$Count[borough_crash_counts$Borough == borough])
-})
+avg_borough <- borough_crash_counts %>%
+  group_by(Borough) %>%
+  summarise(Average = mean(Count))
 
-borough_crash_counts$Count_avg <- apply(borough_crash_counts, MARGIN = 1, FUN = function(row){
-  return(as.numeric(row[3]) - as.numeric(avg_borough$Average[avg_borough$Borough == row[1]]))
-})
+borough_crash_counts <- borough_crash_counts %>%
+  left_join(avg_borough, by = "Borough") %>%
+  mutate(Count_avg = Count - Average) %>%
+  select(Borough, Weekday, Count, Count_avg)
+
+weekday_order <- c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
 
 ggplot(borough_crash_counts, aes(x = Borough, y = factor(Weekday, levels = rev(weekday_order)), fill = Count_avg)) +
   geom_tile(color = "white", size = 0.1) +
@@ -390,11 +383,22 @@ As we can see, there is a relatively large portion of each bar designated as 'Ot
 This is a density plot visualizing total casualties for all accidents by contributing factor in our data set, where a casualty is either a person injured or a person killed. The plot visualizes the probability density function (pdf) of total casualties of car crashes in NYC. It shows the distribution of car crash casualties in NYC for 4 most common contributing factors. This plot gives us insight into how different contributing factors can influence the number of casualties.
 
 ```{r Density of Casualties by Contributing Factor, fig.cap="Number of Car Crashes by Type of Vehicle per Year"}
-nyc_crashes_filtered <- nyc_crashes[nyc_crashes$CONTRIBUTING.FACTOR.VEHICLE.1 != "Unspecified", ]
-top_5_factors <- head(sort(table(nyc_crashes_filtered$CONTRIBUTING.FACTOR.VEHICLE.1), decreasing = TRUE), 4)
-subset_data <- nyc_crashes_filtered[nyc_crashes_filtered$CONTRIBUTING.FACTOR.VEHICLE.1 %in% names(top_5_factors), ]
-desired_order <- rev(names(top_5_factors))
-subset_data$CONTRIBUTING.FACTOR.VEHICLE.1 <- factor(subset_data$CONTRIBUTING.FACTOR.VEHICLE.1, levels = desired_order)
+
+nyc_crashes_filtered <- nyc_crashes %>%
+  filter(CONTRIBUTING.FACTOR.VEHICLE.1 != "Unspecified")
+
+top_5_factors <- nyc_crashes_filtered %>%
+  count(CONTRIBUTING.FACTOR.VEHICLE.1) %>%
+  arrange(desc(n)) %>%
+  head(4)
+
+subset_data <- nyc_crashes_filtered %>%
+  filter(CONTRIBUTING.FACTOR.VEHICLE.1 %in% top_5_factors$CONTRIBUTING.FACTOR.VEHICLE.1)
+
+desired_order <- rev(top_5_factors$CONTRIBUTING.FACTOR.VEHICLE.1)
+
+subset_data <- subset_data %>%
+  mutate(CONTRIBUTING.FACTOR.VEHICLE.1 = factor(CONTRIBUTING.FACTOR.VEHICLE.1, levels = desired_order))
 ggplot(subset_data, aes(x = NUMBER.OF.PERSONS.KILLED + NUMBER.OF.PERSONS.INJURED, colour = CONTRIBUTING.FACTOR.VEHICLE.1)) +
   geom_density(fill = NA, size=0.6, adjust = 3) +  
   labs(title = "Density Plot of Number of Casualties",
@@ -415,7 +419,9 @@ ggplot(subset_data, aes(x = NUMBER.OF.PERSONS.KILLED + NUMBER.OF.PERSONS.INJURED
 
 ```
 
-The plot shows that there is a large difference between low casualty (0 or 1) accidents caused by Failure to Yield Right of Way as compared to the rest of the contributing factors. However, for higher casualty incidents (greater than 2), this difference largely decreases and there is a relatively similar amount of high casualty accidents caused by Failure to Yield Right of Way as to caused by Driver Inattention and Distraction. This suggests that there is a much higher likelihood of a low casualty accident being caused by Failure to Yield Right of Way than a high casualty accident. Furthermore, accidents with 1 or more casualty are more likely to be caused by failure to yield, followed by driver inattention. {{< pagebreak >}}
+The plot shows that there is a large difference between low casualty (0 or 1) accidents caused by Failure to Yield Right of Way as compared to the rest of the contributing factors. However, for higher casualty incidents (greater than 2), this difference largely decreases and there is a relatively similar amount of high casualty accidents caused by Failure to Yield Right of Way as to caused by Driver Inattention and Distraction. This suggests that there is a much higher likelihood of a low casualty accident being caused by Failure to Yield Right of Way than a high casualty accident. Furthermore, accidents with 1 or more casualty are more likely to be caused by failure to yield, followed by driver inattention.
+
+{{< pagebreak >}}
 
 ## Number of Crashes by Weather Conditions
 
