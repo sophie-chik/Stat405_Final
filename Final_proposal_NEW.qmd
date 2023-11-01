@@ -36,11 +36,20 @@ knitr::opts_knit$set(root.dir = "/Users/sophiochikhladze/Desktop/Stat_405/Stat40
 ```
 
 ```{r Load Dataset}
+library(stringr)
 options(stringsAsFactors = FALSE)
 nyc_crashes <- read.csv("Motor_Vehicle_Collisions_-_Crashes.csv")
+nyc_crashes$CRASH.DATE <- as.Date(nyc_crashes$CRASH.DATE,format = "%m/%d/%Y")
+#nyc_crashes$CRASH.DATE <- format(as.Date(nyc_crashes$CRASH.DATE, format = "%m/%d/%Y"), "%Y-%m-%d")
+colnames(nyc_crashes) <- str_replace_all(colnames(nyc_crashes), "\\.", "_")
 library(tidyverse)
 library(grid)
 library(gridExtra)
+library(RSQLite)
+dcon <- dbConnect(SQLite(), dbname = "crashes.db")
+#dbWriteTable(db, "nyc_crashes", nyc_crashes, overwrite = TRUE)
+#dbListFields(dcon, "nyc_crashes") 
+
 ```
 
 {{< pagebreak >}}
@@ -52,15 +61,24 @@ library(gridExtra)
 First, we decided to plot a time series of the number of car crashes each day starting from 2012 up until 2023. Each point represents the total number of crashes that occurred on each day, plotted chronologically.
 
 ```{r Crashes Time Series,fig.cap="Number of Car Crashes over Time"}
-nyc_crashes$CRASH.DATE <- as.Date(nyc_crashes$CRASH.DATE,format = "%m/%d/%Y")
+#nyc_crashes$CRASH.DATE <- as.Date(nyc_crashes$CRASH.DATE,format = "%m/%d/%Y")
 
-dates <- nyc_crashes %>%
-  filter(!is.na(CRASH.DATE)) %>%
-  group_by(CRASH.DATE) %>%
-  summarise(Count = n()) %>%
-  ungroup()
+#dates <- nyc_crashes %>%
+#  filter(!is.na(CRASH.DATE)) %>%
+#  group_by(CRASH.DATE) %>%
+#  summarise(Count = n()) %>%
+#  ungroup()
+res <- dbSendQuery(conn = dcon, "
+SELECT CRASH_DATE, COUNT(*) AS Count
+FROM nyc_crashes
+WHERE CRASH_DATE IS NOT NULL
+GROUP BY CRASH_DATE;
+")
+dates <- dbFetch(res, -1)
+dbClearResult(res)
+dates$CRASH_DATE <- as.Date(dates$CRASH_DATE)
 
-ggplot(dates, aes(x = CRASH.DATE, y = Count)) +
+ggplot(dates, aes(x = CRASH_DATE, y = Count)) +
   geom_line(color = "royalblue") +
   labs(x = "Date",
        y = "Number of Car Crashes",
@@ -68,7 +86,7 @@ ggplot(dates, aes(x = CRASH.DATE, y = Count)) +
   theme(
     axis.text.x = element_text(angle = 45, hjust = 1) 
   ) +
-  scale_x_date(date_labels = "%Y", breaks = seq(min(dates$CRASH.DATE), max(dates$CRASH.DATE), by = "1 year"))
+  scale_x_date(date_labels = "%Y", breaks = seq(min(dates$CRASH_DATE), max(dates$CRASH_DATE), by = "1 year"))
 
 ```
 
@@ -81,19 +99,43 @@ Looking at the number of crashes over time, from 2012 to 2023, we can see that t
 For this plot, we grouped the data by 5 boroughs of New York City: Bronx, Brooklyn, Manhattan, Queens, and Staten Island. First, we calculated the total number of car crashes in each borough, and plotted it in tens of thousands since there was a large amount. Then, we wanted to see if the number of casualties in each borough was proportional to the number of car crashes. Therefore, we calculated the total number of deaths from car accidents per borough and plotted that beside the number of car crashes.
 
 ```{r Number of Car Crashes and Deaths per Borough, fig.cap="Number of Car Crashes and Deaths per Borough"}
-dead_boroughs <- factor(nyc_crashes$BOROUGH[nyc_crashes$NUMBER.OF.PERSONS.KILLED > 0 & nyc_crashes$BOROUGH!=""])
-boroughs <- factor(nyc_crashes$BOROUGH[nyc_crashes$BOROUGH!=""])
-num_crashes <- as.numeric(table(boroughs)) / 10000
-num_deaths <- as.numeric(table(dead_boroughs))
-y_ticks <- seq(0, 56, by = 8)
-par(mgp = c(1.8, 0.2, 0),
-    tck = 0.02)
+#dead_boroughs <- factor(nyc_crashes$BOROUGH[nyc_crashes$NUMBER.OF.PERSONS.KILLED > 0 & nyc_crashes$BOROUGH!=""])
+#boroughs <- factor(nyc_crashes$BOROUGH[nyc_crashes$BOROUGH!=""])
+#num_crashes <- as.numeric(table(boroughs)) / 10000
+#num_deaths <- as.numeric(table(dead_boroughs))
+#y_ticks <- seq(0, 56, by = 8)
+#par(mgp = c(1.8, 0.2, 0),
+#    tck = 0.02)
 
 borough_dist <- data.frame(
   Borough = c("Bronx", "Brooklyn", "Manhattan", "Queens", "Staten Island"),
   Num_Crashes = num_crashes,
   Num_Deaths = num_deaths
 )
+
+res <- dbSendQuery(conn = dcon, "
+SELECT
+  BOROUGH AS Borough,
+  COUNT(*) / 10000 AS Num_Crashes,
+  SUM(CASE WHEN NUMBER_OF_PERSONS_KILLED > 0 THEN 1 ELSE 0 END) AS Num_Deaths
+FROM nyc_crashes
+WHERE BOROUGH IS NOT NULL
+GROUP BY BOROUGH;
+")
+dead_b <- dbFetch(res, -1)
+dbClearResult(res)
+dead_boroughs <- factor(dead_b$Borough[dead_b$Num_Deaths > 0])
+boroughs <- factor(dead_b$Borough)
+
+y_ticks <- seq(0, max(dead_b$Num_Deaths), by = 8)
+
+borough_dist <- data.frame(
+  Borough = dead_b$Borough,
+  Num_Crashes = dead_b$Num_Crashes,
+  Num_Deaths = dead_b$Num_Deaths
+)
+
+par(mgp = c(1.8, 0.2, 0), tck = 0.02)
 
 layout(matrix(c(1, 2), nrow = 1, byrow = TRUE))
 crashes <- ggplot(borough_dist, aes(x = Borough, y = Num_Crashes)) +
@@ -125,24 +167,54 @@ From the left plot, we can see that Brooklyn has the highest amount of crashes, 
 Next, we asked ourselves - is an accident more or less likely to occur during a specific season? For this, we turned each date into a season and calculated the number of car crashes per day for each season. The, we plotted 4 boxplots to represent each season portraying the number of car crashes per day.
 
 ```{r Average Accidents per Day per Season, fig.cap="Average Accidents per Day per Season"}
-conv_season <- function(date) {
-  m <- as.numeric(format(date, "%m"))
-  if(m == 12 || m == 1 || m == 2){
-    return("Winter")
-  }else if(m == 3 || m == 4 || m == 5){
-    return("Spring")
-  }else if(m == 6 || m == 7 || m == 8){
-    return("Summer")
-  }else{
-    return("Fall")
-  }
-}
-daily_counts <- nyc_crashes %>%
-  group_by(CRASH.DATE) %>%
-  summarize(Count = n()) %>%
-  rowwise() %>%
-  mutate(Season = conv_season(CRASH.DATE)) %>%
-  ungroup()
+# conv_season <- function(date) {
+#   m <- as.numeric(format(date, "%m"))
+#   if(m == 12 || m == 1 || m == 2){
+#     return("Winter")
+#   }else if(m == 3 || m == 4 || m == 5){
+#     return("Spring")
+#   }else if(m == 6 || m == 7 || m == 8){
+#     return("Summer")
+#   }else{
+#     return("Fall")
+#   }
+# }
+# daily_counts <- nyc_crashes %>%
+#   group_by(CRASH.DATE) %>%
+#   summarize(Count = n()) %>%
+#   rowwise() %>%
+#   mutate(Season = conv_season(CRASH.DATE)) %>%
+#   ungroup()
+
+
+daily_counts <- dbGetQuery(dcon, "
+SELECT
+  CRASH_DATE,
+  COUNT(*) AS Count
+FROM nyc_crashes
+GROUP BY CRASH_DATE
+")
+
+
+daily_counts <- dbGetQuery(dcon, "
+SELECT
+  CRASH_DATE,
+  Count,
+  CASE
+    WHEN strftime('%m', CRASH_DATE) IN ('12', '01', '02') THEN 'Winter'
+    WHEN strftime('%m', CRASH_DATE) IN ('03', '04', '05') THEN 'Spring'
+    WHEN strftime('%m', CRASH_DATE) IN ('06', '07', '08') THEN 'Summer'
+    ELSE 'Fall'
+  END AS Season
+FROM (
+  SELECT
+    CRASH_DATE,
+    COUNT(*) AS Count
+  FROM nyc_crashes
+  GROUP BY CRASH_DATE
+)
+")
+
 
 ggplot(daily_counts, aes(x = Season, y = Count, fill = Season)) +
   stat_boxplot(geom = "errorbar",
@@ -173,8 +245,10 @@ This is a linear regression over a plot of car crashes vs precipitation in New Y
 library(flextable)
 weatherdata<-read.csv("New York City,USA 2020-09-01 to 2022-12-31.csv")
 
-merged_data3 <- merge(daily_counts, weatherdata, by.x="CRASH.DATE", by.y="datetime")
+merged_data3 <- merge(daily_counts, weatherdata, by.x="CRASH_DATE", by.y="datetime")
 colnames(merged_data3)[13] = "Precipitation"
+
+#dbWriteTable(db, "merged_data3", merged_data3, overwrite = TRUE)
 
 model <- lm(Count ~ Precipitation, data = merged_data3)
 as_flextable(model,  col_keys = c("Intercept", "Precipitation \n Coefficient"))
@@ -202,16 +276,25 @@ The summary of the regression indicates that as there is a one unit increase in 
 The following is a series of bar plots, plotting the number of casualties caused by vehicle crashes to weather conditions during the times of those accidents. Each plot represents the data from car crashes involving 3,4, and 5 cars. 
 
 ```{r Casualties by weather + number of cars, fig.cap="Number of Casualties By Weather Conditions and Number of Cars Involved"}
-merged_data <- merge(nyc_crashes, weatherdata, by.x="CRASH.DATE", by.y="datetime")
-merged_data$num_cars = (merged_data$VEHICLE.TYPE.CODE.1 != "") +
-                      (merged_data$VEHICLE.TYPE.CODE.2 != "") +
-                      (merged_data$VEHICLE.TYPE.CODE.3 != "") +
-                      (merged_data$VEHICLE.TYPE.CODE.4 != "") +
-                      (merged_data$VEHICLE.TYPE.CODE.5 != "")
+# merged_data <- merge(nyc_crashes, weatherdata, by.x="CRASH.DATE", by.y="datetime")
+# merged_data$num_cars = (merged_data$VEHICLE.TYPE.CODE.1 != "") +
+#                       (merged_data$VEHICLE.TYPE.CODE.2 != "") +
+#                       (merged_data$VEHICLE.TYPE.CODE.3 != "") +
+#                       (merged_data$VEHICLE.TYPE.CODE.4 != "") +
+#                       (merged_data$VEHICLE.TYPE.CODE.5 != "")
+# 
+# merged_data <- merged_data %>% filter(num_cars %in% c(3, 4, 5))
+# merged_data$icon[merged_data$icon == "clear-day"] <- "clear"
+# merged_data$icon[merged_data$icon == "partly-cloudy-day"] <- "cloudy"
 
-merged_data <- merged_data %>% filter(num_cars %in% c(3, 4, 5))
-merged_data$icon[merged_data$icon == "clear-day"] <- "clear"
-merged_data$icon[merged_data$icon == "partly-cloudy-day"] <- "cloudy"
+dbGetQuery(dcon, "UPDATE merged_data3
+SET num_cars = 
+    (CASE WHEN VEHICLE_TYPE_CODE_1 <> '' THEN 1 ELSE 0 END) +
+    (CASE WHEN VEHICLE_TYPE_CODE_2 <> '' THEN 1 ELSE 0 END) +
+    (CASE WHEN VEHICLE_TYPE_CODE_3 <> '' THEN 1 ELSE 0 END) +
+    (CASE WHEN VEHICLE_TYPE_CODE_4 <> '' THEN 1 ELSE 0 END) +
+    (CASE WHEN VEHICLE_TYPE_CODE_5 <> '' THEN 1 ELSE 0 END);")
+
 ggplot(data = merged_data, aes(x = as.factor(icon),
                                y = NUMBER.OF.PERSONS.KILLED + NUMBER.OF.PERSONS.INJURED, 
                                fill = as.factor(icon))) +
@@ -240,9 +323,11 @@ The plot below demonstrates a heat map of the number of crashes over/under avera
 library(ggplot2)
 library(viridis)
 
+#nyc_crashes$CRASH_DATE <- as.Date(nyc_crashes$CRASH_DATE,format = "%Y/%m/%d")
+
 
 nyc_crashes <- nyc_crashes %>%
-  mutate(WEEKDAY = weekdays(CRASH.DATE)) %>%
+  mutate(WEEKDAY = weekdays(CRASH_DATE)) %>%
   filter(BOROUGH!="")
 
 borough_crash_counts <- nyc_crashes %>%
@@ -323,12 +408,22 @@ library(dplyr)
 library(ggplot2)
 library(lubridate)
 
-nyc_crashes$Hour <- hour(hm(nyc_crashes$CRASH.TIME))
+nyc_crashes$Hour <- hour(hm(nyc_crashes$CRASH_TIME))
 
 hourly_crashes <- nyc_crashes %>%
   group_by(Hour) %>%
   summarise(Count = n()) %>%
   arrange(Hour)
+
+# hourly_crashes <- dbGetQuery(dcon, "SELECT
+#     strftime('%H', CRASH_TIME) AS Hour,
+#     COUNT(*) AS Count
+# FROM
+#     nyc_crashes
+# GROUP BY
+#     Hour
+# ORDER BY
+#     Hour;")
 
 ggplot(hourly_crashes, aes(x = factor(Hour), y = Count)) +
   geom_bar(stat = "identity", fill = "goldenrod", show.legend = FALSE) +
