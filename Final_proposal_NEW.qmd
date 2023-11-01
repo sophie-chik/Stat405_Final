@@ -47,7 +47,7 @@ library(grid)
 library(gridExtra)
 library(RSQLite)
 dcon <- dbConnect(SQLite(), dbname = "crashes.db")
-#dbWriteTable(db, "nyc_crashes", nyc_crashes, overwrite = TRUE)
+#dbWriteTable(dcon, "nyc_crashes", nyc_crashes, overwrite = TRUE)
 #dbListFields(dcon, "nyc_crashes") 
 
 ```
@@ -84,7 +84,8 @@ ggplot(dates, aes(x = CRASH_DATE, y = Count)) +
        y = "Number of Car Crashes",
        title = "Number of Car Crashes in NYC over Time") +
   theme(
-    axis.text.x = element_text(angle = 45, hjust = 1) 
+    axis.text.x = element_text(angle = 45, hjust = 1), 
+     plot.title = element_text(hjust = 0.5)
   ) +
   scale_x_date(date_labels = "%Y", breaks = seq(min(dates$CRASH_DATE), max(dates$CRASH_DATE), by = "1 year"))
 
@@ -107,11 +108,11 @@ For this plot, we grouped the data by 5 boroughs of New York City: Bronx, Brookl
 #par(mgp = c(1.8, 0.2, 0),
 #    tck = 0.02)
 
-borough_dist <- data.frame(
-  Borough = c("Bronx", "Brooklyn", "Manhattan", "Queens", "Staten Island"),
-  Num_Crashes = num_crashes,
-  Num_Deaths = num_deaths
-)
+# borough_dist <- data.frame(
+#   Borough = c("Bronx", "Brooklyn", "Manhattan", "Queens", "Staten Island"),
+#   Num_Crashes = num_crashes,
+#   Num_Deaths = num_deaths
+# )
 
 res <- dbSendQuery(conn = dcon, "
 SELECT
@@ -124,8 +125,8 @@ GROUP BY BOROUGH;
 ")
 dead_b <- dbFetch(res, -1)
 dbClearResult(res)
-dead_boroughs <- factor(dead_b$Borough[dead_b$Num_Deaths > 0])
-boroughs <- factor(dead_b$Borough)
+# dead_boroughs <- factor(dead_b$Borough[dead_b$Num_Deaths > 0])
+# boroughs <- factor(dead_b$Borough)
 
 y_ticks <- seq(0, max(dead_b$Num_Deaths), by = 8)
 
@@ -142,7 +143,7 @@ crashes <- ggplot(borough_dist, aes(x = Borough, y = Num_Crashes)) +
   geom_bar(stat = "identity", fill = "lightblue") +
   labs(x = NULL, y = "Number of Crashes detected") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),  plot.title = element_text(hjust = 0.5)) +
   ylim(0, 46) +
   ggtitle("Number of Car Crashes \nper Borough, in tens of thousands")
 
@@ -151,7 +152,7 @@ deaths<- ggplot(borough_dist, aes(x = Borough, y = Num_Deaths)) +
   geom_bar(stat = "identity", fill = "royalblue") +
   labs(x = NULL, y = "Number of Deaths") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),  plot.title = element_text(hjust = 0.5)) +
   ylim(0, 600) +
   ggtitle("Number of Deaths from \nCar Crashes per Borough")
 
@@ -228,7 +229,7 @@ ggplot(daily_counts, aes(x = Season, y = Count, fill = Season)) +
                                 "Summer" = "khaki1", 
                                 "Fall" = "slategray1")) +
   scale_y_continuous(breaks = seq(from = 0, to = 1200, by = 300)) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),  plot.title = element_text(hjust = 0.5))
 
 ```
 
@@ -248,7 +249,7 @@ weatherdata<-read.csv("New York City,USA 2020-09-01 to 2022-12-31.csv")
 merged_data3 <- merge(daily_counts, weatherdata, by.x="CRASH_DATE", by.y="datetime")
 colnames(merged_data3)[13] = "Precipitation"
 
-#dbWriteTable(db, "merged_data3", merged_data3, overwrite = TRUE)
+#dbWriteTable(dcon, "merged_data3", merged_data3, overwrite = TRUE)
 
 model <- lm(Count ~ Precipitation, data = merged_data3)
 as_flextable(model,  col_keys = c("Intercept", "Precipitation \n Coefficient"))
@@ -276,7 +277,9 @@ The summary of the regression indicates that as there is a one unit increase in 
 The following is a series of bar plots, plotting the number of casualties caused by vehicle crashes to weather conditions during the times of those accidents. Each plot represents the data from car crashes involving 3,4, and 5 cars. 
 
 ```{r Casualties by weather + number of cars, fig.cap="Number of Casualties By Weather Conditions and Number of Cars Involved"}
-# merged_data <- merge(nyc_crashes, weatherdata, by.x="CRASH.DATE", by.y="datetime")
+# merged_data <- merge(nyc_crashes, weatherdata, by.x="CRASH_DATE", by.y="datetime")
+# merged_data$CRASH_DATE <- format(as.Date(merged_data$CRASH_DATE, format = "%m/%d/%Y"), "%Y-%m-%d")
+# dbWriteTable(dcon, "merged_data", merged_data, overwrite = TRUE)
 # merged_data$num_cars = (merged_data$VEHICLE.TYPE.CODE.1 != "") +
 #                       (merged_data$VEHICLE.TYPE.CODE.2 != "") +
 #                       (merged_data$VEHICLE.TYPE.CODE.3 != "") +
@@ -286,17 +289,40 @@ The following is a series of bar plots, plotting the number of casualties caused
 # merged_data <- merged_data %>% filter(num_cars %in% c(3, 4, 5))
 # merged_data$icon[merged_data$icon == "clear-day"] <- "clear"
 # merged_data$icon[merged_data$icon == "partly-cloudy-day"] <- "cloudy"
-
-dbGetQuery(dcon, "UPDATE merged_data3
-SET num_cars = 
-    (CASE WHEN VEHICLE_TYPE_CODE_1 <> '' THEN 1 ELSE 0 END) +
+update_clear <- dbGetQuery(dcon, "
+UPDATE merged_data
+SET icon = 'clear'
+WHERE icon = 'clear-day';")
+update_cloudy <- dbGetQuery(dcon, "
+UPDATE merged_data
+SET icon = 'cloudy'
+WHERE icon = 'partly-cloudy-day';
+")
+weather_crashes <- dbGetQuery(dcon, "
+SELECT 
+CRASH_DATE,
+  NUMBER_OF_PERSONS_KILLED,
+  NUMBER_OF_PERSONS_INJURED,
+  icon,
+  num_cars
+  FROM
+  (SELECT
+  CRASH_DATE,
+  NUMBER_OF_PERSONS_KILLED,
+  NUMBER_OF_PERSONS_INJURED,
+  icon,
+  (CASE WHEN VEHICLE_TYPE_CODE_1 <> '' THEN 1 ELSE 0 END) +
     (CASE WHEN VEHICLE_TYPE_CODE_2 <> '' THEN 1 ELSE 0 END) +
     (CASE WHEN VEHICLE_TYPE_CODE_3 <> '' THEN 1 ELSE 0 END) +
     (CASE WHEN VEHICLE_TYPE_CODE_4 <> '' THEN 1 ELSE 0 END) +
-    (CASE WHEN VEHICLE_TYPE_CODE_5 <> '' THEN 1 ELSE 0 END);")
+    (CASE WHEN VEHICLE_TYPE_CODE_5 <> '' THEN 1 ELSE 0 END)
+    as num_cars
+FROM merged_data)
+WHERE  num_cars > 2;
+")
 
-ggplot(data = merged_data, aes(x = as.factor(icon),
-                               y = NUMBER.OF.PERSONS.KILLED + NUMBER.OF.PERSONS.INJURED, 
+ggplot(data = weather_crashes, aes(x = as.factor(icon),
+                               y = NUMBER_OF_PERSONS_KILLED + NUMBER_OF_PERSONS_INJURED, 
                                fill = as.factor(icon))) +
   geom_bar(stat = "identity") +  
   labs(x = "Number of Cars Involved",
@@ -304,7 +330,7 @@ ggplot(data = merged_data, aes(x = as.factor(icon),
        title = "Number of Casualties by Weather Conditions and Number of Cars Involved") +
   facet_wrap(~ num_cars, scales = "free_y") +
   theme(
-    axis.text.x = element_text(angle = 45, hjust = 1) 
+    axis.text.x = element_text(angle = 45, hjust = 1),  plot.title = element_text(hjust = 0.5)
   )  +
   scale_fill_manual(values = c("gold", "paleturquoise", "navyblue", "thistle")) +
   guides(fill = "none") 
@@ -319,49 +345,89 @@ The plots display a large plurality of crashes occurring during rainy weather, a
 The plot below demonstrates a heat map of the number of crashes over/under average per day of week per borough. The numbers represent daily averages for each borough subtracted from the number of crashes per day. This is to demonstrate how the number of crashes varies per day of week. Green represents below average number of crashes, yellow represents an average number of crashes, and orange and red represent an above average number of crashes.
 
 ```{r Car Crashes Over/Under average per Day of Week, fig.cap="Number of Car Crashes Over/Under average per Day of Week"}
-# Create the faceted heatmap with sorted weekdays
+# library(ggplot2)
+# library(viridis)
+# #nyc_crashes$CRASH_DATE <- as.Date(nyc_crashes$CRASH_DATE,format = "%Y/%m/%d")
+# 
+# 
+# nyc_crashes <- nyc_crashes %>%
+#   mutate(WEEKDAY = weekdays(CRASH_DATE)) %>%
+#   filter(BOROUGH!="")
+# 
+# borough_crash_counts <- nyc_crashes %>%
+#   group_by(BOROUGH, WEEKDAY) %>%
+#   summarise(Count = n())
+# 
+# colnames(borough_crash_counts) <- c("Borough", "Weekday", "Count")
+# 
+# avg_borough <- borough_crash_counts %>%
+#   group_by(Borough) %>%
+#   summarise(Average = mean(Count))
+# 
+# borough_crash_counts <- borough_crash_counts %>%
+#   left_join(avg_borough, by = "Borough") %>%
+#   mutate(Count_avg = Count - Average) %>%
+#   select(Borough, Weekday, Count, Count_avg)
+# 
+# weekday_order <- c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
+# 
+# ggplot(borough_crash_counts, aes(x = Borough, y = factor(Weekday, levels = rev(weekday_order)), fill = Count_avg)) +
+#   geom_tile(color = "white", size = 0.1) +
+#   coord_equal() +
+#   labs(
+#     x = "Borough",
+#     y = "Day of Week",
+#     title = "Number of Crashes Over/Under Average\nper Day of Week in Each Borough",
+# #    caption = "Data: Motor Vehicle Collisions in New York City, New York",
+#     fill = "Number of\n Accidents"
+#   ) +
+#   theme(
+#     axis.text.x = element_text(angle = 45, hjust = 1) 
+#   ) +
+#   scale_fill_gradient2(low = "green3", mid = "gold", high = "red") +
+#   theme(plot.title = element_text(hjust = 0.5)) 
+
 library(ggplot2)
 library(viridis)
 
-#nyc_crashes$CRASH_DATE <- as.Date(nyc_crashes$CRASH_DATE,format = "%Y/%m/%d")
+borough_crash_counts <- dbGetQuery(dcon, "
+SELECT BOROUGH, strftime('%w', CRASH_DATE) as Weekday_Num, 
+       COUNT(*) as Count
+FROM nyc_crashes
+WHERE BOROUGH != ''
+GROUP BY BOROUGH, strftime('%w', CRASH_DATE);
+")
 
+avg_borough <- dbGetQuery(dcon,  "
+SELECT BOROUGH, AVG(Count) as Average
+FROM (SELECT BOROUGH, strftime('%w', CRASH_DATE) as Weekday_Num, 
+             COUNT(*) as Count
+      FROM nyc_crashes
+      WHERE BOROUGH != ''
+      GROUP BY BOROUGH, strftime('%w', CRASH_DATE))
+GROUP BY BOROUGH;
+")
 
-nyc_crashes <- nyc_crashes %>%
-  mutate(WEEKDAY = weekdays(CRASH_DATE)) %>%
-  filter(BOROUGH!="")
-
-borough_crash_counts <- nyc_crashes %>%
-  group_by(BOROUGH, WEEKDAY) %>%
-  summarise(Count = n())
-
-colnames(borough_crash_counts) <- c("Borough", "Weekday", "Count")
-
-avg_borough <- borough_crash_counts %>%
-  group_by(Borough) %>%
-  summarise(Average = mean(Count))
-
+borough_crash_counts <- left_join(borough_crash_counts, avg_borough, by = "BOROUGH")
 borough_crash_counts <- borough_crash_counts %>%
-  left_join(avg_borough, by = "Borough") %>%
-  mutate(Count_avg = Count - Average) %>%
-  select(Borough, Weekday, Count, Count_avg)
+  mutate(Count_avg = Count - Average)
 
 weekday_order <- c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday")
 
-ggplot(borough_crash_counts, aes(x = Borough, y = factor(Weekday, levels = rev(weekday_order)), fill = Count_avg)) +
+ggplot(borough_crash_counts, aes(x = BOROUGH, y = factor(Weekday_Num, levels = rev(0:6), labels=rev(weekday_order)), fill = Count_avg)) +
   geom_tile(color = "white", size = 0.1) +
   coord_equal() +
   labs(
     x = "Borough",
     y = "Day of Week",
     title = "Number of Crashes Over/Under Average\nper Day of Week in Each Borough",
-#    caption = "Data: Motor Vehicle Collisions in New York City, New York",
     fill = "Number of\n Accidents"
   ) +
   theme(
-    axis.text.x = element_text(angle = 45, hjust = 1) 
+    axis.text.x = element_text(angle = 45, hjust = 1),  plot.title = element_text(hjust = 0.5)
   ) +
   scale_fill_gradient2(low = "green3", mid = "gold", high = "red") +
-  theme(plot.title = element_text(hjust = 0.5)) 
+  theme(plot.title = element_text(hjust = 0.5))
 
 ```
 
@@ -374,25 +440,54 @@ The heat map shows that in all boroughs, the highest number of crashes occurs on
 The plot below demonstrates the number of car crashes per ZIP code in New York City, New York. The plot displays more and less accident-prone zones. As demonstrated in the legend, light yellow is the lower number of crashes, while dark red is the higher number of crashes. The ZIP codes that are gray had no data - indicating that either no car crashes happened in that zone, or none that were recorded. The x axis in the plot represents longitude and the y axis represents latitude.
 
 ```{r Car Crashes per ZIP code, fig.cap="Number of Car Crashes per ZIP code"}
+# library(tidyverse)
+# library(sf)
+# 
+# nyc_crashes$ZIP.CODE <- as.character(nyc_crashes$ZIP.CODE)
+# nyc_crashes$ZIP.CODE <- sub("\\.0$", "", nyc_crashes$ZIP.CODE)
+# zip_counts <- nyc_crashes %>%
+# group_by(ZIP.CODE) %>%
+# summarize(count = n())
+# nyc_zip_boundaries <- st_read("zipcodes.geojson", quiet = TRUE)
+# merged_zip_data <- left_join(nyc_zip_boundaries, zip_counts, by = c("ZIPCODE" = "ZIP.CODE"))
+# ggplot(merged_zip_data) +
+#   geom_sf(aes(fill = count)) +
+#   scale_fill_gradient(low = "lightyellow", high = "darkred", 
+#                       name = "Count of Car Crashes") +
+#   ggtitle("Car Crashes by NYC ZIP Code") +
+#   labs(x = "Longitude", y = "Latitude", 
+#  #      caption = "Data: Motor Vehicle Collisions in New York City, New York"
+#  ) +
+#   theme_minimal()
+
 library(tidyverse)
 library(sf)
+library(RSQLite)
 
-nyc_crashes$ZIP.CODE <- as.character(nyc_crashes$ZIP.CODE)
-nyc_crashes$ZIP.CODE <- sub("\\.0$", "", nyc_crashes$ZIP.CODE)
-zip_counts <- nyc_crashes %>%
-group_by(ZIP.CODE) %>%
-summarize(count = n())
+dcon <- dbConnect(SQLite(), dbname = "crashes.db")
+
+zip_counts <- dbGetQuery(dcon, "
+SELECT ZIP_CODE, COUNT(*) as count
+FROM nyc_crashes
+WHERE ZIP_CODE != ''
+GROUP BY ZIP_CODE;
+")
+
 nyc_zip_boundaries <- st_read("zipcodes.geojson", quiet = TRUE)
-merged_zip_data <- left_join(nyc_zip_boundaries, zip_counts, by = c("ZIPCODE" = "ZIP.CODE"))
+
+zip_counts$ZIP_CODE <- as.character(zip_counts$ZIP_CODE)
+merged_zip_data <- left_join(nyc_zip_boundaries, zip_counts, by = c("ZIPCODE" = "ZIP_CODE"))
+
+
 ggplot(merged_zip_data) +
   geom_sf(aes(fill = count)) +
-  scale_fill_gradient(low = "lightyellow", high = "darkred", 
-                      name = "Count of Car Crashes") +
+  scale_fill_gradient(low = "lightyellow", high = "darkred", name = "Count of Car Crashes") +
   ggtitle("Car Crashes by NYC ZIP Code") +
-  labs(x = "Longitude", y = "Latitude", 
- #      caption = "Data: Motor Vehicle Collisions in New York City, New York"
- ) +
-  theme_minimal()
+  labs(x = "Longitude", y = "Latitude") +
+  theme_minimal() + 
+  theme(plot.title = element_text(hjust = 0.5))
+
+
 ```
 
 From the plot, it is visible that some of these darker regions include areas where major bridges lead into and out of Manhattan to Queens and Brooklyn, which might be a factor for why there is a high volume of crashes in these areas. The lighter shaded ZIP codes on the map signify regions with fewer crashes. Generally, there are less crashes in the borough of Staten Island based on this graphic, which might be due to a lower traffic and population. The gray block in Manhattan is central park, so it is logical that no crashes occurred in that ZIP code.
@@ -451,41 +546,40 @@ There is a substantial increase in the amount of crashes during the late afterno
 Below is a histogram of accidents by year, with each bar filled based on the top 3 types of vehicles involved in those accidents. These three categories are passenger vehicle, depicted in green, station wagon or sport utility vehicle, depicted in turquoise, and finally taxi, depicted in magenta. The x axis represents the year and y axis represents the number of accidents that occurred.
 
 ```{r Crashes by Vehicle Type per Year, fig.cap="Number of Car Crashes by Type of Vehicle per Year"}
-nyc_crashes$Year <- format(nyc_crashes$CRASH.DATE, "%Y")
-old_values <- c("4 dr sedan", "2 dr sedan", "SEDAN", "sedan", "PASSENGER VEHICLE", "Sedan")
-new_value <- "Passenger Vehicle"
-old_values1 <- c("SPORT UTILITY / STATION WAGON")
-new_value1 <- "Station Wagon/Sport Utility Vehicle"
-old_values2 <- c("TAXI")
-new_value2 <- "Taxi"
-old_values3 <- c("Passenger Vehicle", "Station Wagon/Sport Utility Vehicle", "Taxi")
-new_values3 <- "Other"
+library(DBI)
+library(RSQLite)
+library(ggplot2)
+library(lubridate)
 
+query <- dbExecute(dcon, "
+UPDATE nyc_crashes
+SET VEHICLE_TYPE_CODE_1 = CASE 
+    WHEN VEHICLE_TYPE_CODE_1 IN ('4 dr sedan', '2 dr sedan', 'SEDAN', 'sedan', 'PASSENGER VEHICLE', 'Sedan', 'Passenger Vehicle') THEN 'Passenger Vehicle'
+    WHEN VEHICLE_TYPE_CODE_1 IN ('SPORT UTILITY / STATION WAGON', 'Station Wagon/Sport Utility Vehicle') THEN 'Station Wagon/Sport Utility Vehicle'
+    WHEN VEHICLE_TYPE_CODE_1 IN ('TAXI', 'Taxi') THEN 'Taxi'
+    ELSE 'Other'
+END
+")
 
+type_of_car_accidents <- dbGetQuery(dcon, "
+SELECT strftime('%Y', CRASH_DATE) as Year, VEHICLE_TYPE_CODE_1, COUNT(*) as Freq 
+FROM nyc_crashes 
+WHERE VEHICLE_TYPE_CODE_1 IN ('Passenger Vehicle', 'Station Wagon/Sport Utility Vehicle', 'Taxi', 'Other') 
+GROUP BY Year, VEHICLE_TYPE_CODE_1
+")
 
-# Use conditional indexing to change the values
-nyc_crashes$VEHICLE.TYPE.CODE.1[nyc_crashes$VEHICLE.TYPE.CODE.1 %in% old_values] <- new_value
-nyc_crashes$VEHICLE.TYPE.CODE.1[nyc_crashes$VEHICLE.TYPE.CODE.1 %in% old_values1] <- new_value1
-nyc_crashes$VEHICLE.TYPE.CODE.1[nyc_crashes$VEHICLE.TYPE.CODE.1 %in% old_values2] <- new_value2
-nyc_crashes$VEHICLE.TYPE.CODE.1[nyc_crashes$VEHICLE.TYPE.CODE.1 != old_values3] <- new_values3
-
-top_10_factors <- head(sort(table(nyc_crashes$VEHICLE.TYPE.CODE.1), decreasing = TRUE), 10)
-
-type_of_car_accidents <- data.frame(table(nyc_crashes$Year, nyc_crashes$VEHICLE.TYPE.CODE.1))
-
-# Create the bar plot
-ggplot(type_of_car_accidents, aes(x = Var1, y = Freq, fill = Var2)) +
+ggplot(type_of_car_accidents, aes(x = Year, y = Freq, fill = VEHICLE_TYPE_CODE_1)) +
   geom_bar(stat = "identity", position = "stack") +
   labs(
     title = "Number of Car Accidents by Year and Type of Car",
     subtitle = "3 Most Common Car Types",
-#    caption = "Data: Motor Vehicle Collisions in New York City, New York",
     x = "Year",
     y = "Number of Accidents",
     fill = "Type of Car"
   ) +
   theme_minimal() + 
-    theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5))
+  theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5))
+
 
 ```
 
@@ -496,38 +590,83 @@ As we can see, there is a relatively large portion of each bar designated as 'Ot
 This is a density plot visualizing total casualties for all accidents by contributing factor in our data set, where a casualty is either a person injured or a person killed. The plot visualizes the probability density function (pdf) of total casualties of car crashes in NYC. It shows the distribution of car crash casualties in NYC for 4 most common contributing factors. This plot gives us insight into how different contributing factors can influence the number of casualties.
 
 ```{r Density of Casualties by Contributing Factor, fig.cap="Number of Car Crashes by Type of Vehicle per Year"}
+# 
+# nyc_crashes_filtered <- nyc_crashes %>%
+#   filter(CONTRIBUTING.FACTOR.VEHICLE.1 != "Unspecified")
+# 
+# top_5_factors <- nyc_crashes_filtered %>%
+#   count(CONTRIBUTING.FACTOR.VEHICLE.1) %>%
+#   arrange(desc(n)) %>%
+#   head(4)
+# 
+# subset_data <- nyc_crashes_filtered %>%
+#   filter(CONTRIBUTING.FACTOR.VEHICLE.1 %in% top_5_factors$CONTRIBUTING.FACTOR.VEHICLE.1)
+# 
+# desired_order <- rev(top_5_factors$CONTRIBUTING.FACTOR.VEHICLE.1)
+# 
+# subset_data <- subset_data %>%
+#   mutate(CONTRIBUTING.FACTOR.VEHICLE.1 = factor(CONTRIBUTING.FACTOR.VEHICLE.1, levels = desired_order))
+# ggplot(subset_data, aes(x = NUMBER.OF.PERSONS.KILLED + NUMBER.OF.PERSONS.INJURED, colour = CONTRIBUTING.FACTOR.VEHICLE.1)) +
+#   geom_density(fill = NA, size=0.6, adjust = 3) +  
+#   labs(title = "Density Plot of Number of Casualties",
+#        subtitle = "Top 4 Contributing Factors",
+# #       caption = "Data: Motor Vehicle Collisions in New York City, New York",
+#        fill = "Contributing Factor",
+#        x = "Number of Casualties",
+#        y = "Density") +
+#   scale_x_continuous(
+#     labels = c( "0", "1", "2", "3", "4", "5")  
+#   ) +
+#   theme_minimal() +  xlim(c(-0.5,5.5))+ ylim(c(0, 5)) +
+#  scale_colour_manual(values = c("purple3", "red2", "royalblue", "green3")) +
+#   theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5), 
+#         legend.position = c(0.95, 0.95), legend.justification = c(1, 1)) +
+#   guides(colour = guide_legend(title = "Contributing Factor"))
 
-nyc_crashes_filtered <- nyc_crashes %>%
-  filter(CONTRIBUTING.FACTOR.VEHICLE.1 != "Unspecified")
+library(DBI)
+library(RSQLite)
+library(ggplot2)
+library(lubridate)
 
-top_5_factors <- nyc_crashes_filtered %>%
-  count(CONTRIBUTING.FACTOR.VEHICLE.1) %>%
-  arrange(desc(n)) %>%
-  head(4)
+dcon <- dbConnect(SQLite(), dbname = "crashes.db")
 
-subset_data <- nyc_crashes_filtered %>%
-  filter(CONTRIBUTING.FACTOR.VEHICLE.1 %in% top_5_factors$CONTRIBUTING.FACTOR.VEHICLE.1)
+top_4_factors <- dbGetQuery(dcon,  "
+SELECT CONTRIBUTING_FACTOR_VEHICLE_1, 
+       SUM(NUMBER_OF_PERSONS_KILLED + NUMBER_OF_PERSONS_INJURED) as Casualties
+FROM nyc_crashes
+WHERE CONTRIBUTING_FACTOR_VEHICLE_1 != 'Unspecified'
+GROUP BY CONTRIBUTING_FACTOR_VEHICLE_1
+ORDER BY Casualties DESC
+LIMIT 4
+")
 
-desired_order <- rev(top_5_factors$CONTRIBUTING.FACTOR.VEHICLE.1)
+contributing_factors <- paste0("'", paste(top_4_factors$CONTRIBUTING_FACTOR_VEHICLE_1, collapse="','"), "'")
 
-subset_data <- subset_data %>%
-  mutate(CONTRIBUTING.FACTOR.VEHICLE.1 = factor(CONTRIBUTING.FACTOR.VEHICLE.1, levels = desired_order))
-ggplot(subset_data, aes(x = NUMBER.OF.PERSONS.KILLED + NUMBER.OF.PERSONS.INJURED, colour = CONTRIBUTING.FACTOR.VEHICLE.1)) +
-  geom_density(fill = NA, size=0.6, adjust = 3) +  
+subset_data <- dbGetQuery(dcon, sprintf("
+SELECT CONTRIBUTING_FACTOR_VEHICLE_1, 
+       NUMBER_OF_PERSONS_KILLED + NUMBER_OF_PERSONS_INJURED as Casualties
+FROM nyc_crashes
+WHERE CONTRIBUTING_FACTOR_VEHICLE_1 IN (%s)
+", contributing_factors))
+
+subset_data$CONTRIBUTING_FACTOR_VEHICLE_1 <- factor(subset_data$CONTRIBUTING_FACTOR_VEHICLE_1, levels = rev(top_4_factors$CONTRIBUTING_FACTOR_VEHICLE_1))
+
+ggplot(subset_data, aes(x = Casualties, colour = CONTRIBUTING_FACTOR_VEHICLE_1)) +
+  geom_density(fill = NA, size = 0.6, adjust = 3) +
   labs(title = "Density Plot of Number of Casualties",
        subtitle = "Top 4 Contributing Factors",
-#       caption = "Data: Motor Vehicle Collisions in New York City, New York",
        fill = "Contributing Factor",
        x = "Number of Casualties",
        y = "Density") +
-  scale_x_continuous(
-    labels = c( "0", "1", "2", "3", "4", "5")  
-  ) +
-  theme_minimal() +  xlim(c(-0.5,5.5))+ ylim(c(0, 5)) +
- scale_colour_manual(values = c("purple3", "red2", "royalblue", "green3")) +
+  scale_x_continuous(breaks = 0:5, labels = c("0", "1", "2", "3", "4", "5")) +
+  theme_minimal() +
+  xlim(c(-0.5, 5.5)) +
+  ylim(c(0, 5)) +
+  scale_colour_manual(values = c("purple3", "red2", "royalblue", "green3")) +
   theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5), 
         legend.position = c(0.95, 0.95), legend.justification = c(1, 1)) +
   guides(colour = guide_legend(title = "Contributing Factor"))
+
 
 
 ```
@@ -541,10 +680,24 @@ The plot shows that there is a large difference between low casualty (0 or 1) ac
 The Box-Dot plot below displays the number of crashes that occur for a given day for the various categories of weather conditions. The weather conditions are listed on the x axis, while the number of car accidents is on the y axis. Each blue dot represents a day - its x coordinate is the weather that day, and the y coordinate is the number of accidents that occurred that day. The boxes show the first and third quartiles, as well as the median number of car crashes for each weather. This plot, in addition to the primary data set, utilizes the secondary data set, Weather in New York City, New York from 2020-09-01 to 2022-12-31 \[2\].
 
 ```{r Number of Crashes by Weather Conditions, fig.cap="Number of Crashes by Weather Conditions"}
-merged_data3$icon[merged_data3$icon == "clear-day"] <- "clear"
-merged_data3$icon[merged_data3$icon == "partly-cloudy-day"] <- "partly cloudy"
+update_clear <- dbGetQuery(dcon, "
+UPDATE merged_data3
+SET icon = 'clear'
+WHERE icon = 'clear-day';")
+update_cloudy <- dbGetQuery(dcon, "
+UPDATE merged_data3
+SET icon = 'partly cloudy'
+WHERE icon = 'partly-cloudy-day';
+")
+weather_counts <- dbGetQuery(dcon, "
+          SELECT 
+          icon, 
+          Count
+          FROM 
+          merged_data3
+                             ")
 
-ggplot(merged_data3, aes(icon, Count)) +
+ggplot(weather_counts, aes(icon, Count)) +
 geom_boxplot( width = 0.97, fill = "transparent") +  
   geom_dotplot(binaxis = 'y',
                stackdir = 'center',
@@ -565,6 +718,60 @@ geom_boxplot( width = 0.97, fill = "transparent") +
 ```
 
 The plot shows that from 09/01/2020 to 12/31/2022, there was a majority of rainy days, followed by clear days, and partly cloudy days. This can be concluded by the number of blue dots on each section of the x axis. The median number of car accidents for a clear day is slightly higher than the number of car accidents on the rainy days. However, the rain box has two outliers, where the highest number of car accidents happened out of all days. What is quite surprising to note is that the median number of accidents on snowy days is lower than the median number of accidents on clear days, which may be the case because less people are out on the road during snowy weather. {{< pagebreak >}}
+
+## Number of Car Crashes per Contributing Factors
+
+For this plot, we decided to perform text mining on the Contributing Vehicle Factors. This column contained many different factors, and there was correlation between many of these factors, so in order to grasp a better picture of this variable, we decided to group them based on more broad overarching categories including: Aggressive, Distraction, Driving Error, External, Fatigue, Malfunction, Substance, and Other.
+
+```{r}
+res4 <- dbSendQuery(conn = dcon, "
+SELECT
+    CONTRIBUTING_FACTOR_VEHICLE_1,
+    CASE
+        WHEN CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Alcohol%' OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Drugs%' OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Medication%' THEN 'Substance'
+        WHEN CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Aggressive%' OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Vandalism%' OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Unsafe%' THEN 'Aggressive'
+        WHEN CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Illnes%' OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Illness%' 
+          OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Fatigued/Drowsy%' OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Asleep%' OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Consciousness%' THEN 'Fatigue'
+        WHEN CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Distraction%' OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Phone%' 
+          OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Inattention/Distraction%' OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Device%' OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Reaction%'
+          OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Eating%' OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Headphones%' OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Texting%' THEN 'Distraction'
+        WHEN CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Yield%' OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Backing%' 
+          OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Yield%' OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Backing%'
+          OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Passing%' OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Traffic%' OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Turning%'
+          OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Following%' OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Keep%' THEN 'Driving Error'
+        WHEN CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Defective%' OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Tire%' 
+          OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Steering%' OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Defects%' THEN 'Malfunction'
+        WHEN CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Animals%' OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Obstruction/Debris%' 
+          OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Pavement%' OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Obstructed/Limited%'
+          OR CONTRIBUTING_FACTOR_VEHICLE_1 LIKE '%Glare%' THEN 'External'
+        ELSE 'Other'
+    END AS Contributing_Factor
+FROM
+    nyc_crashes;
+
+")
+
+mydf4 <- dbFetch(res4, -1)
+dbClearResult(res4)
+
+factor_frequencies <- table(mydf4$Contributing_Factor)
+
+frequency_df <- as.data.frame(factor_frequencies)
+names(frequency_df) <- c("Contributing_Factor", "Frequency")  # Rename columns
+
+
+
+ggplot(data = frequency_df, aes(x = Contributing_Factor, y = Frequency)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  xlab("Contributing Factors") +
+  ylab("Frequency") +
+  labs( title = "Bar Plot of Contributing Factor Frequencies") + 
+   theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5), 
+        axis.text.x = element_text(hjust = 0.5))
+
+```
+
+From the plot above, the "Other" category is the largest, which makes sense since the category also includes "Unspecified", and a lot of the contributing factors could not be determined. However, after that, "Distraction" is the biggest category, followed by "Driving Error". Other factors include "Aggressive", which includes behavior that is not an error or distraction but is what is commonly referred to as "road rage". Fatigue is also a big factor, followed by external. Close to this is also substance, which includes alcohol and drugs.
 
 # Resources
 
